@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { greeting, spawnCommand, copyFilesWithExtension } from './utils.js';
 import * as path from 'path';
 import * as fs from 'fs';
 import { debug } from 'debug';
