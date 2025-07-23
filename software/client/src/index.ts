@@ -4,7 +4,7 @@ import { Command } from 'commander';
 import * as path from 'path';
 import * as fs from 'fs';
 import { debug } from 'debug';
-import * as common from 'common';
+import * as common from '@team-affix/apm-common';
 
 // Set version manually (can be updated during build)
 const VERSION = '1.0.0';

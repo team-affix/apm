@@ -1,5 +1,5 @@
 {
-  "name": "apm",
+  "name": "@team-affix/apm-client",
   "version": "1.0.0",
   "description": "Agda package manager.",
   "main": "dist/index.js",
@@ -23,6 +23,6 @@
     "@types/debug": "^4.1.12",
     "adm-zip": "^0.5.16",
     "debug": "^4.4.1",
-    "common": "file:../common"
+    "@team-affix/apm-common": "^1.0.1"
   }
 }

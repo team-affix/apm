@@ -1,6 +1,6 @@
 {
-    "name": "common",
-    "version": "1.0.0",
+    "name": "@team-affix/apm-common",
+    "version": "1.0.1",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "scripts": {
