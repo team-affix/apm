@@ -56,7 +56,7 @@ class Registry {
     // Get the default registry
     static async getDefault(): Promise<Registry> {
         // Create the default registry path
-        const defaultRegistryPath = path.join(os.homedir(), '.apm', 'registry');
+        const defaultRegistryPath = path.join(os.homedir(), '.apm', 'common', 'registry');
 
         // If the default registry path does not exist, create it
         if (!fs.existsSync(defaultRegistryPath)) return await Registry.create(defaultRegistryPath);
