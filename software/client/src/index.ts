@@ -5,6 +5,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { debug } from 'debug';
 import * as common from '@team-affix/apm-common';
+import { createTrpcClient } from './trpc-client';
 
 // Set version manually (can be updated during build)
 const VERSION = '1.0.0';
@@ -271,6 +272,17 @@ program
                 console.error(error);
             }
         }
+    });
+
+program
+    .command('rpc-ls')
+    .description('Tests the RPC calls')
+    .argument('<url>', 'The url to test')
+    .argument('<ids...>', 'The ids to test')
+    .action(async (url: string, ids: string[]) => {
+        const trpcClient = createTrpcClient(url);
+        const result = await trpcClient.ls.query({ ids: ids });
+        console.log(result);
     });
 
 // Parse command line arguments
