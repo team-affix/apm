@@ -5,7 +5,7 @@ import * as os from 'os';
 export class Remotes {
     constructor(
         private path: string,
-        private remotes: Map<string, string>,
+        private raw: Map<string, string>,
     ) { }
 
     static load(path: string): Remotes {
@@ -19,20 +19,33 @@ export class Remotes {
     }
 
     save(): void {
-        const json = Object.fromEntries(this.remotes);
-        fs.writeFileSync(this.path, JSON.stringify(json, null, 2));
+        const json = Object.fromEntries(this.raw);
+        fs.writeFileSync(this.path, JSON.stringify(json, null, 4));
     }
 
     add(name: string, url: string): void {
-        this.remotes.set(name, url);
+        if (this.raw.has(name)) {
+            throw new Error(`Remote ${name} already exists`);
+        }
+        this.raw.set(name, url);
     }
 
     remove(name: string): void {
-        this.remotes.delete(name);
+        if (!this.raw.has(name)) {
+            throw new Error(`Remote ${name} does not exist`);
+        }
+        this.raw.delete(name);
     }
 
-    get(name: string): string | undefined {
-        return this.remotes.get(name);
+    get(name: string): string {
+        if (!this.raw.has(name)) {
+            throw new Error(`Remote ${name} does not exist`);
+        }
+        return this.raw.get(name);
+    }
+
+    toString(): string {
+        return Array.from(this.raw.entries()).map(([name, url]) => `${name}: ${url}`).join('\n');
     }
 
     static getDefault(): Remotes {

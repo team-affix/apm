@@ -1,7 +1,8 @@
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 import { debug } from 'debug';
 import * as common from '@team-affix/apm-common';
 import { createTrpcClient } from '../trpc/client';
+import { Remotes } from '../models/remotes';
 
 // Set version manually (can be updated during build)
 const VERSION = '1.1.6';
@@ -93,6 +94,7 @@ program
             } else {
                 console.error(error);
             }
+            process.exit(1);
         }
     });
 
@@ -113,6 +115,7 @@ program
             } else {
                 console.error(error);
             }
+            process.exit(1);
         }
     });
 
@@ -135,6 +138,7 @@ program
             } else {
                 console.error(error);
             }
+            process.exit(1);
         }
     });
 
@@ -163,6 +167,7 @@ program
             } else {
                 console.error(error);
             }
+            process.exit(1);
         }
     });
 
@@ -187,6 +192,7 @@ program
             } else {
                 console.error(error);
             }
+            process.exit(1);
         }
     });
 
@@ -212,6 +218,7 @@ program
             } else {
                 console.error(error);
             }
+            process.exit(1);
         }
     });
 
@@ -270,13 +277,95 @@ program
         }
     });
 
+const remoteCommand = program
+    .command('remote')
+    .description('Manages the client\'s remotes file');
+
+remoteCommand
+    .command('ls')
+    .description('Lists the remotes in the remotes file')
+    .action(async () => {
+        const remotes = Remotes.getDefault();
+        console.log(remotes.toString());
+    });
+
+remoteCommand
+    .command('add')
+    .description('Adds a remote to the remotes file')
+    .argument('<name>', 'The name of the remote')
+    .argument('<url>', 'The url of the remote')
+    .action(async (name: string, url: string) => {
+        try {
+            const remotes = Remotes.getDefault();
+            remotes.add(name, url);
+            remotes.save();
+        } catch (error: unknown) {
+            if (error instanceof Error) {
+                console.error(error.message);
+            } else {
+                console.error(error);
+            }
+            process.exit(1);
+        }
+    });
+
+remoteCommand
+    .command('rm')
+    .description('Removes a remote from the remotes file')
+    .argument('<name>', 'The name of the remote')
+    .action(async (name: string) => {
+        try {
+            const remotes = Remotes.getDefault();
+            remotes.remove(name);
+            remotes.save();
+        } catch (error: unknown) {
+            if (error instanceof Error) {
+                console.error(error.message);
+            } else {
+                console.error(error);
+            }
+            process.exit(1);
+        }
+    });
+
 program
-    .command('rpc-ls')
-    .description('Tests the RPC calls')
-    .argument('<url>', 'The url to test')
-    .argument('<ids...>', 'The ids to test')
-    .action(async (url: string, ids: string[]) => {
-        const trpcClient = createTrpcClient(url);
-        const result = await trpcClient.ls.query({ ids: ids });
-        console.log(result);
+    .command('ls')
+    .description('Query the given package IDs')
+    .addOption(new Option('-r, --remote <remote>', 'The remote to query').default(undefined))
+    .argument('<ids...>', 'The ids to query')
+    .action(async (ids: string[], options: { remote: string }) => {
+        try {
+            var result: string[] = [];
+
+            // If no remote is specified, use the local registry
+            if (options.remote === undefined) {
+                // list the packages on the local registry, do not use https
+                const registry = await common.Registry.getDefault();
+                const resultSet = await registry.ls(new Set(ids));
+                result = Array.from(resultSet);
+            }
+            else {
+                // Get the remote URL
+                const remotes = Remotes.getDefault();
+                const url = remotes.get(options.remote);
+
+                // Create a TRPC client
+                const trpcClient = createTrpcClient(url);
+
+                // Query the remote
+                const resultObject = await trpcClient.ls.query({ ids: ids });
+                result = resultObject.ids;
+            }
+
+            // Print the results
+            console.log(result.join('\n'));
+
+        } catch (error: unknown) {
+            if (error instanceof Error) {
+                console.error(error.message);
+            } else {
+                console.error(error);
+            }
+            process.exit(1);
+        }
     });
