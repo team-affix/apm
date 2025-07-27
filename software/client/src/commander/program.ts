@@ -8,7 +8,7 @@ import * as os from 'os';
 import * as fs from 'fs';
 
 // Set version manually (can be updated during build)
-const VERSION = '1.3.0';
+const VERSION = '1.3.2';
 
 // Create a new commander program
 export const program = new Command();
