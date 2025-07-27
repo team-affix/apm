@@ -136,4 +136,128 @@ describe('router', () => {
             });
         });
     });
+
+    describe('getPullDependencies()', () => {
+        describe('success cases', () => {
+            test('valid root id, no dependencies', async () => {
+                // Create a package
+                const pkg0 = await createAndRegister('test', new Set<string>([]));
+
+                const result = await caller.getPullDependencies({
+                    rootId: pkg0.id,
+                });
+
+                expect(result.pkgIds).toEqual([pkg0.id]);
+            });
+            test('valid root id, one dependency', async () => {
+                // Create packages
+                const pkg0 = await createAndRegister('test0', new Set<string>([]));
+                const pkg1 = await createAndRegister('test1', new Set<string>([pkg0.id]));
+
+                const result = await caller.getPullDependencies({
+                    rootId: pkg1.id,
+                });
+
+                expect(result.pkgIds).toEqual([pkg0.id, pkg1.id]);
+            });
+            test('valid root id, two direct dependencies', async () => {
+                // Create packages
+                const pkg0 = await createAndRegister('test0', new Set<string>([]));
+                const pkg1 = await createAndRegister('test1', new Set<string>([]));
+                const pkg2 = await createAndRegister('test2', new Set<string>([pkg0.id, pkg1.id]));
+
+                const result = await caller.getPullDependencies({
+                    rootId: pkg2.id,
+                });
+
+                expect(result.pkgIds).toEqual([pkg0.id, pkg1.id, pkg2.id]);
+            });
+            test('valid root id, one direct and one indirect dependency', async () => {
+                // Create packages
+                const pkg0 = await createAndRegister('test0', new Set<string>([]));
+                const pkg1 = await createAndRegister('test1', new Set<string>([pkg0.id]));
+                const pkg2 = await createAndRegister('test2', new Set<string>([pkg1.id]));
+
+                const result = await caller.getPullDependencies({
+                    rootId: pkg2.id,
+                });
+
+                expect(result.pkgIds).toEqual([pkg0.id, pkg1.id, pkg2.id]);
+            });
+            test('valid root id, two direct each with one indirect dependency', async () => {
+                // Create packages
+                const pkg0 = await createAndRegister('test0', new Set<string>([]));
+                const pkg1 = await createAndRegister('test1', new Set<string>([]));
+                const pkg2 = await createAndRegister('test2', new Set<string>([pkg0.id]));
+                const pkg3 = await createAndRegister('test3', new Set<string>([pkg1.id]));
+                const pkg4 = await createAndRegister('test4', new Set<string>([pkg2.id, pkg3.id]));
+
+                const result = await caller.getPullDependencies({
+                    rootId: pkg4.id,
+                });
+
+                expect(result.pkgIds).toEqual([pkg0.id, pkg2.id, pkg1.id, pkg3.id, pkg4.id]);
+            });
+            test('valid root id, two direct each with same indirect dependency', async () => {
+                // Create packages
+                const pkg0 = await createAndRegister('test0', new Set<string>([]));
+                const pkg1 = await createAndRegister('test1', new Set<string>([pkg0.id]));
+                const pkg2 = await createAndRegister('test2', new Set<string>([pkg0.id]));
+                const pkg3 = await createAndRegister('test3', new Set<string>([pkg0.id, pkg1.id, pkg2.id]));
+
+                const result = await caller.getPullDependencies({
+                    rootId: pkg3.id,
+                });
+
+                expect(result.pkgIds).toEqual([pkg0.id, pkg1.id, pkg2.id, pkg3.id]);
+            });
+            test('valid root id, two direct each with two indirect dependencies', async () => {
+                // Create packages
+                const pkg0 = await createAndRegister('test0', new Set<string>([]));
+                const pkg1 = await createAndRegister('test1', new Set<string>([]));
+                const pkg2 = await createAndRegister('test2', new Set<string>([]));
+                const pkg3 = await createAndRegister('test3', new Set<string>([]));
+                const pkg4 = await createAndRegister('test4', new Set<string>([pkg0.id, pkg1.id]));
+                const pkg5 = await createAndRegister('test5', new Set<string>([pkg2.id, pkg3.id]));
+                const pkg6 = await createAndRegister('test6', new Set<string>([pkg4.id, pkg5.id]));
+
+                const result = await caller.getPullDependencies({
+                    rootId: pkg6.id,
+                });
+
+                expect(result.pkgIds).toEqual([pkg0.id, pkg1.id, pkg4.id, pkg2.id, pkg3.id, pkg5.id, pkg6.id]);
+            });
+            test('valid root id, two direct each with two indirect dependencies, one of which is a duplicate', async () => {
+                // Create packages
+                const pkg0 = await createAndRegister('test0', new Set<string>([]));
+                const pkg1 = await createAndRegister('test1', new Set<string>([]));
+                const pkg2 = await createAndRegister('test2', new Set<string>([]));
+                const pkg3 = await createAndRegister('test3', new Set<string>([pkg0.id, pkg1.id]));
+                const pkg4 = await createAndRegister('test4', new Set<string>([pkg1.id, pkg2.id]));
+                const pkg5 = await createAndRegister('test5', new Set<string>([pkg1.id, pkg3.id, pkg4.id]));
+
+                const result = await caller.getPullDependencies({
+                    rootId: pkg5.id,
+                });
+
+                expect(result.pkgIds).toEqual([pkg1.id, pkg0.id, pkg3.id, pkg2.id, pkg4.id, pkg5.id]);
+            });
+        });
+        describe('failure cases', () => {
+            test('empty rootId should result in error', async () => {
+                await expect(
+                    caller.getPullDependencies({
+                        rootId: '',
+                    }),
+                ).rejects.toThrow(TRPCError);
+            });
+            test('invalid root id should result in error', async () => {
+                await expect(
+                    caller.getPullDependencies({
+                        rootId: 'invalid-id',
+                    }),
+                ).rejects.toThrow(TRPCError);
+            });
+        });
+    });
 });

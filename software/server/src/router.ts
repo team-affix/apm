@@ -26,6 +26,16 @@ const GetOutputType = z.object({
     b64: z.string(),
 });
 
+// Get Pull Dependencies Input Type
+const GetPullDependenciesInputType = z.object({
+    rootId: z.string(),
+});
+
+// Get Pull Dependencies Output Type
+const GetPullDependenciesOutputType = z.object({
+    pkgIds: z.array(z.string()),
+});
+
 // Create router
 export const appRouter = t.router({
     ls: t.procedure
@@ -58,6 +68,37 @@ export const appRouter = t.router({
 
             return {
                 b64: bytes.toString('base64'),
+            };
+        }),
+
+    getPullDependencies: t.procedure
+        .input(GetPullDependenciesInputType)
+        .output(GetPullDependenciesOutputType)
+        .query(async ({ input }) => {
+            // Get the default registry
+            const registry = await Registry.getDefault();
+
+            // Get the package tree
+            const result = await registry.getPackageTree(input.rootId);
+
+            // Get the topological sort
+            const topologicalSort = result.getTopologicalSort();
+
+            // Get the package ids
+            const pkgIds = topologicalSort.map((pkg) => pkg.id);
+
+            // Filter out duplicate package ids (PRESERVE ORDER)
+            const seen = new Set<string>();
+            const uniquePkgIds = [];
+            for (const pkgId of pkgIds) {
+                if (!seen.has(pkgId)) {
+                    seen.add(pkgId);
+                    uniquePkgIds.push(pkgId);
+                }
+            }
+
+            return {
+                pkgIds: uniquePkgIds,
             };
         }),
 });
