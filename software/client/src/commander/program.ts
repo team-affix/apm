@@ -5,7 +5,7 @@ import { createTrpcClient } from '../trpc/client';
 import { Remotes } from '../models/remotes';
 
 // Set version manually (can be updated during build)
-const VERSION = '1.1.6';
+const VERSION = '1.2.2';
 
 // Create a new commander program
 export const program = new Command();
