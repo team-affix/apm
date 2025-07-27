@@ -3,15 +3,27 @@ import { debug } from 'debug';
 import * as common from '@team-affix/apm-common';
 import { createTrpcClient } from '../trpc/client';
 import { Remotes } from '../models/remotes';
+import path from 'path';
+import * as os from 'os';
+import * as fs from 'fs';
 
 // Set version manually (can be updated during build)
-const VERSION = '1.2.2';
+const VERSION = '1.3.0';
 
 // Create a new commander program
 export const program = new Command();
 
 // Configure the program with version, description, etc.
 program.name('apm').description('Agda Package Manager - A tool for managing Agda packages').version(VERSION);
+
+// Create a new command group for project management
+const projectCommand = program.command('project').description('Manages the current project');
+
+// Create a new command group for remote management
+const remoteCommand = program.command('remote').description("Manages the client's remotes file");
+
+// Create a new command group for package management
+const packageCommand = program.command('package').description('Manages packages');
 
 // program
 //   .command("clean")
@@ -27,7 +39,7 @@ program.name('apm').description('Agda Package Manager - A tool for managing Agda
 //     clean();
 //   });
 
-program
+projectCommand
     .command('init')
     .description('Initializes an apm project in the current directory')
     .argument('<project-name>', 'The name of the project')
@@ -50,7 +62,7 @@ program
         }
     });
 
-program
+projectCommand
     .command('install')
     .description('Installs the dependencies for the current project')
     .action(async () => {
@@ -98,7 +110,7 @@ program
         }
     });
 
-program
+projectCommand
     .command('clean')
     .description('Cleans the current project')
     .action(async () => {
@@ -119,7 +131,7 @@ program
         }
     });
 
-program
+projectCommand
     .command('check')
     .description('Typechecks the current project')
     .action(async () => {
@@ -142,7 +154,7 @@ program
         }
     });
 
-program
+projectCommand
     .command('pack')
     .description('Packs the current project into an apm file')
     .argument('<destination>', 'The destination path for the package')
@@ -171,7 +183,7 @@ program
         }
     });
 
-program
+projectCommand
     .command('unpack')
     .description('Unpacks an apm file into a project in the current directory')
     .argument('<source>', 'The source path for the apm file')
@@ -196,59 +208,7 @@ program
         }
     });
 
-program
-    .command('register')
-    .description('Registers a package in the registry')
-    .argument('<source>', 'The source path for the apm file')
-    .argument('[id]', 'The expected id of the package, if one is known')
-    .action(async (source: string, id?: string) => {
-        // Create debug logger
-        const dbg = debug('apm:project:register');
-
-        try {
-            // Load the package
-            const pkg = await common.Package.load(source);
-            // Get the default registry
-            const registry = await common.Registry.getDefault();
-            // Register the package
-            await registry.put(pkg, id);
-        } catch (error: unknown) {
-            if (error instanceof Error) {
-                console.error(error.message);
-            } else {
-                console.error(error);
-            }
-            process.exit(1);
-        }
-    });
-
-program
-    .command('info')
-    .description('Prints the details of the supplied package')
-    .argument('<source>', 'The source path for the apm file')
-    .action(async (source: string) => {
-        // Create debug logger
-        const dbg = debug('apm:project:stat');
-
-        try {
-            // Load the package
-            const pkg = await common.Package.load(source);
-            // Print the details
-            console.log(`Package file: ${pkg.filePath}`);
-            console.log(`Package name: ${pkg.name}`);
-            console.log(`Package id: ${pkg.id}`);
-            console.log(`Package dependencies: ${JSON.stringify(Array.from(pkg.directDeps))}`);
-            console.log(`Package archive offset: ${pkg.archiveOffset}`);
-        } catch (error: unknown) {
-            if (error instanceof Error) {
-                console.error(error.message);
-            } else {
-                console.error(error);
-            }
-        }
-    });
-
-program
+projectCommand
     .command('tree')
     .description('Prints the dependency tree of the current project')
     .action(async () => {
@@ -277,9 +237,57 @@ program
         }
     });
 
-const remoteCommand = program
-    .command('remote')
-    .description('Manages the client\'s remotes file');
+packageCommand
+    .command('register')
+    .description('Registers a package in the registry')
+    .argument('<source>', 'The source path for the apm file')
+    .argument('[id]', 'The expected id of the package, if one is known')
+    .action(async (source: string, id?: string) => {
+        // Create debug logger
+        const dbg = debug('apm:project:register');
+
+        try {
+            // Load the package
+            const pkg = await common.Package.load(source);
+            // Get the default registry
+            const registry = await common.Registry.getDefault();
+            // Register the package
+            await registry.put(pkg, id);
+        } catch (error: unknown) {
+            if (error instanceof Error) {
+                console.error(error.message);
+            } else {
+                console.error(error);
+            }
+            process.exit(1);
+        }
+    });
+
+packageCommand
+    .command('info')
+    .description('Prints the details of the supplied package')
+    .argument('<source>', 'The source path for the apm file')
+    .action(async (source: string) => {
+        // Create debug logger
+        const dbg = debug('apm:project:stat');
+
+        try {
+            // Load the package
+            const pkg = await common.Package.load(source);
+            // Print the details
+            console.log(`Package file: ${pkg.filePath}`);
+            console.log(`Package name: ${pkg.name}`);
+            console.log(`Package id: ${pkg.id}`);
+            console.log(`Package dependencies: ${JSON.stringify(Array.from(pkg.directDeps))}`);
+            console.log(`Package archive offset: ${pkg.archiveOffset}`);
+        } catch (error: unknown) {
+            if (error instanceof Error) {
+                console.error(error.message);
+            } else {
+                console.error(error);
+            }
+        }
+    });
 
 remoteCommand
     .command('ls')
@@ -328,7 +336,7 @@ remoteCommand
         }
     });
 
-program
+packageCommand
     .command('ls')
     .description('Query the given package IDs')
     .addOption(new Option('-r, --remote <remote>', 'The remote to query').default(undefined))
@@ -343,8 +351,7 @@ program
                 const registry = await common.Registry.getDefault();
                 const resultSet = await registry.ls(new Set(ids));
                 result = Array.from(resultSet);
-            }
-            else {
+            } else {
                 // Get the remote URL
                 const remotes = Remotes.getDefault();
                 const url = remotes.get(options.remote);
@@ -359,7 +366,50 @@ program
 
             // Print the results
             console.log(result.join('\n'));
+        } catch (error: unknown) {
+            if (error instanceof Error) {
+                console.error(error.message);
+            } else {
+                console.error(error);
+            }
+            process.exit(1);
+        }
+    });
 
+packageCommand
+    .command('pull')
+    .description('Pulls a package and registers it in the local registry')
+    .argument('<remote>', 'The remote to pull from')
+    .argument('<id>', 'The id of the package to pull')
+    .action(async (remote: string, id: string) => {
+        try {
+            const remotes = Remotes.getDefault();
+            const url = remotes.get(remote);
+
+            // Create a TRPC client
+            const trpcClient = createTrpcClient(url);
+
+            // Query the remote
+            const resultObject = await trpcClient.get.query({ id: id });
+
+            // Get the bytes
+            const bytes = Buffer.from(resultObject.b64, 'base64');
+
+            // Create a temporary directory for the package
+            const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apm-client-pull'));
+
+            // Create the package file
+            const pkgPath = path.join(tmpDir, `pkg.apm`);
+            fs.writeFileSync(pkgPath, bytes);
+
+            // Load the package
+            const pkg = await common.Package.load(pkgPath);
+
+            // Get the default registry
+            const registry = await common.Registry.getDefault();
+
+            // Register the package
+            await registry.put(pkg, id);
         } catch (error: unknown) {
             if (error instanceof Error) {
                 console.error(error.message);
