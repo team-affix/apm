@@ -1,5 +1,6 @@
 import { initTRPC } from '@trpc/server';
 import { z } from 'zod';
+import { Registry } from '@team-affix/apm-common';
 
 // Initialize tRPC
 const t = initTRPC.create();
@@ -20,9 +21,14 @@ export const appRouter = t.router({
     .input(LSInputType)
     .output(LSOutputType)
     .query(async ({ input }) => {
-      // Simple ls implementation - returns the same ids array
+      // Get the default registry
+      const registry = await Registry.getDefault();
+
+      // ls the registry
+      const result = await registry.ls(new Set(input.ids));
+
       return {
-        ids: input.ids
+        ids: Array.from(result)
       };
     })
 });
