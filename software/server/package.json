@@ -1,48 +1,48 @@
 {
-  "name": "@team-affix/apm-server",
-  "version": "1.1.1",
-  "description": "tRPC server for Agda Package Manager",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "scripts": {
-    "build": "tsc",
-    "start": "node dist/server.js",
-    "dev": "nodemon --exec ts-node src/server.ts",
-    "test": "jest",
-    "lint": "eslint src/**/*.ts",
-    "prepublishOnly": "npm run build"
-  },
-  "files": [
-    "dist/**/*",
-    "src/**/*"
-  ],
-  "keywords": [
-    "trpc",
-    "agda",
-    "package-manager",
-    "typescript"
-  ],
-  "author": "Team Affix",
-  "license": "ISC",
-  "devDependencies": {
-    "@types/express": "^5.0.3",
-    "@types/jest": "^30.0.0",
-    "@types/node": "^24.1.0",
-    "@typescript-eslint/eslint-plugin": "^8.38.0",
-    "@typescript-eslint/parser": "^8.38.0",
-    "eslint": "^9.32.0",
-    "jest": "^30.0.5",
-    "nodemon": "^3.1.10",
-    "ts-jest": "^29.4.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
-  },
-  "dependencies": {
-    "@team-affix/apm-common": "^1.0.5",
-    "@trpc/server": "^11.4.3",
-    "@types/cors": "^2.8.19",
-    "cors": "^2.8.5",
-    "express": "^5.1.0",
-    "zod": "^4.0.10"
-  }
+    "name": "@team-affix/apm-server",
+    "version": "1.1.5",
+    "description": "tRPC server for Agda Package Manager",
+    "main": "dist/src/index.js",
+    "types": "dist/src/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "start": "node dist/server.js",
+        "dev": "nodemon --exec ts-node src/server.ts",
+        "test": "jest",
+        "lint": "eslint src/**/*.ts",
+        "prepublishOnly": "npm run build"
+    },
+    "files": [
+        "dist/**/*",
+        "src/**/*"
+    ],
+    "keywords": [
+        "trpc",
+        "agda",
+        "package-manager",
+        "typescript"
+    ],
+    "author": "Team Affix",
+    "license": "ISC",
+    "devDependencies": {
+        "@types/express": "^5.0.3",
+        "@types/jest": "^30.0.0",
+        "@types/node": "^24.1.0",
+        "@typescript-eslint/eslint-plugin": "^8.38.0",
+        "@typescript-eslint/parser": "^8.38.0",
+        "eslint": "^9.32.0",
+        "jest": "^30.0.5",
+        "nodemon": "^3.1.10",
+        "ts-jest": "^29.4.0",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.8.3"
+    },
+    "dependencies": {
+        "@team-affix/apm-common": "^1.0.5",
+        "@trpc/server": "^11.4.3",
+        "@types/cors": "^2.8.19",
+        "cors": "^2.8.5",
+        "express": "^5.1.0",
+        "zod": "^4.0.10"
+    }
 }

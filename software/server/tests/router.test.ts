@@ -116,7 +116,7 @@ describe('router', () => {
                     id: pkg0.id,
                 });
 
-                expect(result.bytes).toEqual(pkgBytes);
+                expect(result.b64).toEqual(pkgBytes.toString('base64'));
             });
         });
         describe('failure cases', () => {

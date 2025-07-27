@@ -23,7 +23,7 @@ const GetInputType = z.object({
 
 // Get Output Type
 const GetOutputType = z.object({
-    bytes: z.instanceof(Buffer),
+    b64: z.string(),
 });
 
 // Create router
@@ -57,7 +57,7 @@ export const appRouter = t.router({
             const bytes = fs.readFileSync(result.filePath);
 
             return {
-                bytes,
+                b64: bytes.toString('base64'),
             };
         }),
 });
