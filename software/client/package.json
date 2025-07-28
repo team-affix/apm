@@ -22,7 +22,7 @@
     "dependencies": {
         "@aws-sdk/client-lambda": "^3.835.0",
         "@team-affix/apm-common": "^1.0.5",
-        "@team-affix/apm-server": "^1.1.7",
+        "@team-affix/apm-server": "^1.2.1",
         "@trpc/client": "^11.4.3",
         "@types/adm-zip": "^0.5.7",
         "@types/debug": "^4.1.12",

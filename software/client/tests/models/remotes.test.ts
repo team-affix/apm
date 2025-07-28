@@ -5,15 +5,13 @@ import * as fs from 'fs';
 import { describe, test, expect, beforeEach } from '@jest/globals';
 
 describe('Remotes', () => {
-
     // The temporary directory for the test case
     let testCaseDir: string;
 
     // Create the temporary directory for the test case
     beforeEach(() => {
         testCaseDir = path.join(os.tmpdir(), 'apm-client-tests', 'remotes');
-        if (fs.existsSync(testCaseDir))
-            fs.rmSync(testCaseDir, { recursive: true });
+        if (fs.existsSync(testCaseDir)) fs.rmSync(testCaseDir, { recursive: true });
         fs.mkdirSync(testCaseDir, { recursive: true });
     });
 
@@ -92,7 +90,6 @@ describe('Remotes', () => {
             (remotes as any).raw.set(remote1name, remote1url);
             remotes.save();
             const txtAfter = fs.readFileSync(remotesPath, 'utf8');
-            console.log(txtAfter);
             expect(txtAfter).toBe(`{\n    "${remote1name}": "${remote1url}"\n}`);
         });
 
@@ -108,8 +105,9 @@ describe('Remotes', () => {
             (remotes as any).raw.set(remote2name, remote2url);
             remotes.save();
             const txtAfter = fs.readFileSync(remotesPath, 'utf8');
-            console.log(txtAfter);
-            expect(txtAfter).toBe(`{\n    "${remote1name}": "${remote1url}",\n    "${remote2name}": "${remote2url}"\n}`);
+            expect(txtAfter).toBe(
+                `{\n    "${remote1name}": "${remote1url}",\n    "${remote2name}": "${remote2url}"\n}`,
+            );
         });
     });
 

@@ -6,6 +6,7 @@ import { Remotes } from '../models/remotes';
 import path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
+import { pull } from '../utils/pull';
 
 // Set version manually (can be updated during build)
 const VERSION = '1.3.2';
@@ -383,33 +384,7 @@ packageCommand
     .argument('<id>', 'The id of the package to pull')
     .action(async (remote: string, id: string) => {
         try {
-            const remotes = Remotes.getDefault();
-            const url = remotes.get(remote);
-
-            // Create a TRPC client
-            const trpcClient = createTrpcClient(url);
-
-            // Query the remote
-            const resultObject = await trpcClient.get.query({ id: id });
-
-            // Get the bytes
-            const bytes = Buffer.from(resultObject.b64, 'base64');
-
-            // Create a temporary directory for the package
-            const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apm-client-pull'));
-
-            // Create the package file
-            const pkgPath = path.join(tmpDir, `pkg.apm`);
-            fs.writeFileSync(pkgPath, bytes);
-
-            // Load the package
-            const pkg = await common.Package.load(pkgPath);
-
-            // Get the default registry
-            const registry = await common.Registry.getDefault();
-
-            // Register the package
-            await registry.put(pkg, id);
+            await pull(remote, id);
         } catch (error: unknown) {
             if (error instanceof Error) {
                 console.error(error.message);

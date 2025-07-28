@@ -1,12 +1,13 @@
 {
-  "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "module": "commonjs",
-    "target": "ES2022",
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "skipLibCheck": true
-  },
-  "include": ["src"]
+    "compilerOptions": {
+        "outDir": "./dist",
+        "rootDir": ".",
+        "module": "commonjs",
+        "target": "ES2022",
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "skipLibCheck": true
+    },
+    "include": ["src", "tests"],
+    "exclude": ["node_modules", "dist"]
 }
