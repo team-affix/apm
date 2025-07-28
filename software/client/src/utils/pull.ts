@@ -5,6 +5,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
+export function log(...args: any[]) {
+    if (process.env.NODE_ENV !== 'test') {
+        console.log(...args);
+    }
+}
+
 export async function pull(remote: string, rootId: string) {
     // Get the remotes map
     const remotes = Remotes.getDefault();
@@ -24,8 +30,14 @@ export async function pull(remote: string, rootId: string) {
     // Determine which pull dependencies are already present in the registry
     const presentDeps = await registry.ls(new Set<string>(pullDependencies.pkgIds));
 
+    // Log the number of dependencies already present
+    log('Dependencies already present: ', presentDeps.size);
+
     // Filter out the pull dependencies that are already present in the registry
     const missingDeps = pullDependencies.pkgIds.filter((pkgId) => !presentDeps.has(pkgId));
+
+    // Log the number of dependencies missing
+    log('Dependencies missing: ', missingDeps.length);
 
     // Create a temporary directory for the package
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apm-client-pull'));
@@ -47,5 +59,8 @@ export async function pull(remote: string, rootId: string) {
 
         // Register the package
         await registry.put(pkg, pkgId);
+
+        // Log the package that was pulled
+        log('Pulled: ', pkgId);
     }
 }
