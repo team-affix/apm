@@ -591,6 +591,32 @@ describe('router', () => {
                 const lsResultEnd = await registry.ls(new Set<string>([pkg0.id]));
                 expect(lsResultEnd.size).toBe(0);
             });
+
+            test('put package with wrong id)', async () => {
+                // Create a package
+                const pkg0 = await createPkg('Test', new Set<string>([]), new Map<string, string>());
+
+                // read the package bytes from file
+                const pkg0Bytes = fs.readFileSync(pkg0.filePath);
+                const pkg0B64 = pkg0Bytes.toString('base64');
+
+                // Expect the packages to not be in the registry
+                const registry = await Registry.getDefault();
+                const lsResult = await registry.ls(new Set<string>([pkg0.id]));
+                expect(lsResult.size).toBe(0);
+
+                // Put the package (expect to reject)
+                await expect(
+                    caller.put({
+                        id: 'wrongId',
+                        b64: pkg0B64,
+                    }),
+                ).rejects.toThrow(TRPCError);
+
+                // Expect the package to not be in the registry
+                const lsResultEnd = await registry.ls(new Set<string>([pkg0.id, 'wrongId']));
+                expect(lsResultEnd.size).toBe(0);
+            });
         });
     });
 });
