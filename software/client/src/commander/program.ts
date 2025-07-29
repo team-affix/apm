@@ -392,11 +392,27 @@ remoteCommand
     .description('Adds a remote to the remotes file')
     .argument('<name>', 'The name of the remote')
     .argument('<url>', 'The url of the remote')
-    .action(async (name: string, url: string) => {
+    .addOption(new Option('--no-health-check', 'Do not check the health of the remote').default(false))
+    .action(async (name: string, url: string, options: { 'no-health-check': boolean }) => {
         try {
+            // If the health check is not disabled, check the health of the remote
+            if (!options['no-health-check']) {
+                const health = await healthCheck(url);
+                if (!health) throw new Error(`[✗] Remote '${name}' health check failed`);
+                console.log(`[✓] Remote '${name}' is healthy`);
+            }
+
+            // Get the remotes
             const remotes = Remotes.getDefault();
+
+            // Add the remote
             remotes.add(name, url);
+
+            // Save the remotes
             remotes.save();
+
+            // Print the remotes
+            console.log(`Added remote '${name}' (${url})`);
         } catch (error: unknown) {
             if (error instanceof Error) {
                 console.error(error.message);
