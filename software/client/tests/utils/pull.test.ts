@@ -20,6 +20,7 @@ import { createTrpcClient } from '../../src/trpc/client';
 
 const TEST_REMOTE_NAME = 'test';
 const TEST_REMOTE_URL = 'https://example.com';
+const TEST_REMOTE_API_URL = 'https://example.com/api/trpc';
 
 describe('pull', () => {
     // The temporary directory for the test case
@@ -86,7 +87,8 @@ describe('pull', () => {
         };
 
         // Mock the function createTrpcClient
-        (createTrpcClient as jest.Mock).mockImplementation((url) => {
+        (createTrpcClient as jest.Mock).mockImplementation((apiUrl) => {
+            expect(apiUrl).toBe(TEST_REMOTE_API_URL);
             return mockedTrpcClient;
         });
 
@@ -180,7 +182,7 @@ describe('pull', () => {
             // Add the package ID to the mock pull dependencies
             mockResponsePullDependencies = [pkg.id];
             // Pull the package
-            await pull(TEST_REMOTE_NAME, pkg.id);
+            await pull(TEST_REMOTE_API_URL, pkg.id);
             // Verify that the correct get requests were made to the remote
             expect(requestedPackageIds).toEqual([pkg.id]);
             // Check that the package was pulled
@@ -197,7 +199,7 @@ describe('pull', () => {
             // Add the package IDs to the mock pull dependencies
             mockResponsePullDependencies = [pkg0.id, pkg1.id];
             // Pull the package
-            await pull(TEST_REMOTE_NAME, pkg1.id);
+            await pull(TEST_REMOTE_API_URL, pkg1.id);
             // Verify that the correct get requests were made to the remote
             expect(requestedPackageIds).toEqual([pkg0.id, pkg1.id]);
             // Check that the packages were pulled
@@ -216,7 +218,7 @@ describe('pull', () => {
             // Add the package IDs to the mock pull dependencies
             mockResponsePullDependencies = [pkg0.id, pkg1.id, pkg2.id];
             // Pull the package
-            await pull(TEST_REMOTE_NAME, pkg2.id);
+            await pull(TEST_REMOTE_API_URL, pkg2.id);
             // Verify that the correct get requests were made to the remote
             expect(requestedPackageIds).toEqual([pkg0.id, pkg1.id, pkg2.id]);
             // Check that the packages were pulled
@@ -237,7 +239,7 @@ describe('pull', () => {
             // Add the package IDs to the mock pull dependencies
             mockResponsePullDependencies = [pkg0.id, pkg1.id, pkg2.id, pkg3.id];
             // Pull the package
-            await pull(TEST_REMOTE_NAME, pkg3.id);
+            await pull(TEST_REMOTE_API_URL, pkg3.id);
             // Verify that the correct get requests were made to the remote
             expect(requestedPackageIds).toEqual([pkg0.id, pkg1.id, pkg2.id, pkg3.id]);
             // Check that the packages were pulled
@@ -259,7 +261,7 @@ describe('pull', () => {
             const localRegistry = await Registry.getDefault();
             await localRegistry.put(pkg0);
             // Pull the package
-            await pull(TEST_REMOTE_NAME, pkg0.id);
+            await pull(TEST_REMOTE_API_URL, pkg0.id);
             // Verify that the correct get requests were made to the remote (empty since we already have the package)
             expect(requestedPackageIds).toEqual([]);
         });
@@ -275,7 +277,7 @@ describe('pull', () => {
             await localRegistry.put(pkg0);
             await localRegistry.put(pkg1);
             // Pull the package
-            await pull(TEST_REMOTE_NAME, pkg1.id);
+            await pull(TEST_REMOTE_API_URL, pkg1.id);
             // Verify that the correct get requests were made to the remote (empty since we already have the package)
             expect(requestedPackageIds).toEqual([]);
         });
@@ -293,7 +295,7 @@ describe('pull', () => {
             await localRegistry.put(pkg1);
             await localRegistry.put(pkg2);
             // Pull the package
-            await pull(TEST_REMOTE_NAME, pkg2.id);
+            await pull(TEST_REMOTE_API_URL, pkg2.id);
             // Verify that the correct get requests were made to the remote (empty since we already have the package)
             expect(requestedPackageIds).toEqual([]);
         });
@@ -308,7 +310,7 @@ describe('pull', () => {
             const localRegistry = await Registry.getDefault();
             await localRegistry.put(pkg0);
             // Pull the package
-            await pull(TEST_REMOTE_NAME, pkg1.id);
+            await pull(TEST_REMOTE_API_URL, pkg1.id);
             // Verify that the correct get requests were made to the remote (we already have pkg0)
             expect(requestedPackageIds).toEqual([pkg1.id]);
             // Check that the packages were pulled
@@ -329,7 +331,7 @@ describe('pull', () => {
             const localRegistry = await Registry.getDefault();
             await localRegistry.put(pkg0);
             // Pull the package
-            await pull(TEST_REMOTE_NAME, pkg2.id);
+            await pull(TEST_REMOTE_API_URL, pkg2.id);
             // Verify that the correct get requests were made to the remote (we already have pkg0)
             expect(requestedPackageIds).toEqual([pkg1.id, pkg2.id]);
             // Check that the packages were pulled
@@ -351,7 +353,7 @@ describe('pull', () => {
             const localRegistry = await Registry.getDefault();
             await localRegistry.put(pkg1);
             // Pull the package
-            await pull(TEST_REMOTE_NAME, pkg2.id);
+            await pull(TEST_REMOTE_API_URL, pkg2.id);
             // Verify that the correct get requests were made to the remote (we already have pkg1)
             expect(requestedPackageIds).toEqual([pkg0.id, pkg2.id]);
             // Check that the packages were pulled
@@ -373,7 +375,7 @@ describe('pull', () => {
             const localRegistry = await Registry.getDefault();
             await localRegistry.put(pkg0);
             // Pull the package
-            await pull(TEST_REMOTE_NAME, pkg2.id);
+            await pull(TEST_REMOTE_API_URL, pkg2.id);
             // Verify that the correct get requests were made to the remote (we already have pkg0)
             expect(requestedPackageIds).toEqual([pkg1.id, pkg2.id]);
             // Check that the packages were pulled
@@ -396,7 +398,7 @@ describe('pull', () => {
             await localRegistry.put(pkg0);
             await localRegistry.put(pkg1);
             // Pull the package
-            await pull(TEST_REMOTE_NAME, pkg2.id);
+            await pull(TEST_REMOTE_API_URL, pkg2.id);
             // Verify that the correct get requests were made to the remote (we already have pkg0 and pkg1)
             expect(requestedPackageIds).toEqual([pkg2.id]);
             // Check that the packages were pulled
@@ -418,7 +420,7 @@ describe('pull', () => {
             const localRegistry = await Registry.getDefault();
             await localRegistry.put(pkg0);
             // Pull the package
-            await pull(TEST_REMOTE_NAME, pkg3.id);
+            await pull(TEST_REMOTE_API_URL, pkg3.id);
             // Verify that the correct get requests were made to the remote (we already have pkg0)
             expect(requestedPackageIds).toEqual([pkg1.id, pkg2.id, pkg3.id]);
             // Check that the packages were pulled
@@ -442,7 +444,7 @@ describe('pull', () => {
             const localRegistry = await Registry.getDefault();
             await localRegistry.put(pkg1);
             // Pull the package
-            await pull(TEST_REMOTE_NAME, pkg3.id);
+            await pull(TEST_REMOTE_API_URL, pkg3.id);
             // Verify that the correct get requests were made to the remote (we already have pkg1)
             expect(requestedPackageIds).toEqual([pkg0.id, pkg2.id, pkg3.id]);
             // Check that the packages were pulled
@@ -468,7 +470,7 @@ describe('pull', () => {
             await localRegistry.put(pkg0);
             await localRegistry.put(pkg2);
             // Pull the package
-            await pull(TEST_REMOTE_NAME, pkg4.id);
+            await pull(TEST_REMOTE_API_URL, pkg4.id);
             // Verify that the correct get requests were made to the remote (we already have pkg0 and pkg2)
             expect(requestedPackageIds).toEqual([pkg1.id, pkg3.id, pkg4.id]);
             // Check that the packages were pulled
@@ -495,7 +497,7 @@ describe('pull', () => {
             await localRegistry.put(pkg2); // left direct dep
             await localRegistry.put(pkg1); // right indirect dep
             // Pull the package
-            await pull(TEST_REMOTE_NAME, pkg4.id);
+            await pull(TEST_REMOTE_API_URL, pkg4.id);
             // Verify that the correct get requests were made to the remote (we already have pkg0, pkg1, and pkg2)
             expect(requestedPackageIds).toEqual([pkg3.id, pkg4.id]);
             // Check that the packages were pulled

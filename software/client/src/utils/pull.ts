@@ -1,4 +1,3 @@
-import { getAPIUrl, Remotes } from '../models/remotes';
 import { createTrpcClient } from '../trpc/client';
 import * as common from '@team-affix/apm-common';
 import * as fs from 'fs';
@@ -11,16 +10,7 @@ export function log(...args: any[]) {
     }
 }
 
-export async function pull(remote: string, rootId: string) {
-    // Get the remotes map
-    const remotes = Remotes.getDefault();
-
-    // Get the server url
-    const serverUrl = remotes.get(remote);
-
-    // Get the api url
-    const apiUrl = getAPIUrl(serverUrl);
-
+export async function pull(apiUrl: string, rootId: string) {
     // Create a TRPC client for the remote
     const trpcClient = createTrpcClient(apiUrl);
 

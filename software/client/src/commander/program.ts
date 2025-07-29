@@ -2,7 +2,7 @@ import { Command, Option } from 'commander';
 import { debug } from 'debug';
 import * as common from '@team-affix/apm-common';
 import { createTrpcClient } from '../trpc/client';
-import { getAPIUrl, Remotes } from '../models/remotes';
+import { getAPIUrl, getHealthUrl, Remotes } from '../models/remotes';
 import path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
@@ -368,7 +368,17 @@ packageCommand
     .argument('<id>', 'The id of the package to pull')
     .action(async (remote: string, id: string) => {
         try {
-            await pull(remote, id);
+            // Get the remotes
+            const remotes = Remotes.getDefault();
+
+            // Get the server url
+            const serverUrl = remotes.get(remote);
+
+            // Get the api url
+            const apiUrl = getAPIUrl(serverUrl);
+
+            // Pull the package
+            await pull(apiUrl, id);
         } catch (error: unknown) {
             if (error instanceof Error) {
                 console.error(error.message);
@@ -397,8 +407,16 @@ remoteCommand
         try {
             // If the health check is not disabled, check the health of the remote
             if (!options['no-health-check']) {
-                const health = await healthCheck(url);
+                // Get the health url
+                const healthUrl = getHealthUrl(url);
+
+                // Check the health of the remote
+                const health = await healthCheck(healthUrl);
+
+                // If the health check failed, throw an error
                 if (!health) throw new Error(`[✗] Remote '${name}' health check failed`);
+
+                // Print the health of the remote
                 console.log(`[✓] Remote '${name}' is healthy`);
             }
 
@@ -458,8 +476,11 @@ remoteCommand
         // Get the server url
         const serverUrl = remotes.get(remote);
 
+        // Get the health url
+        const healthUrl = getHealthUrl(serverUrl);
+
         // Check the health of the remote
-        const health = await healthCheck(serverUrl);
+        const health = await healthCheck(healthUrl);
 
         if (!health) {
             console.error(`[✗] Remote '${remote}' health check failed`);

@@ -1,9 +1,6 @@
-import { getHealthUrl } from '../models/remotes';
-
-export async function healthCheck(serverUrl: string): Promise<boolean> {
+export async function healthCheck(healthUrl: string): Promise<boolean> {
     // Make a simple HTTP request to the health endpoint
     try {
-        const healthUrl = getHealthUrl(serverUrl);
         const response = await fetch(healthUrl);
 
         // If the request was not successful, return false
