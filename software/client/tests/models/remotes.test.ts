@@ -3,6 +3,8 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 import { describe, test, expect, beforeEach } from '@jest/globals';
+import { RemoteAlreadyExistsError } from '../../src/errors/remote-already-exists';
+import { RemoteDoesNotExistError } from '../../src/errors/remote-does-not-exist';
 
 describe('Remotes', () => {
     // The temporary directory for the test case
@@ -148,7 +150,7 @@ describe('Remotes', () => {
                 const remote1name = 'default';
                 const remote1url = 'https://revival.org';
                 (remotes as any).raw.set(remote1name, remote1url);
-                expect(() => remotes.add(remote1name, 'https://somethingelse.org')).toThrow();
+                expect(() => remotes.add(remote1name, 'https://somethingelse.org')).toThrow(RemoteAlreadyExistsError);
             });
         });
     });
@@ -188,7 +190,7 @@ describe('Remotes', () => {
                 Remotes.create(remotesPath);
                 const remotes = Remotes.load(remotesPath);
                 const remote1name = 'default';
-                expect(() => remotes.remove(remote1name)).toThrow();
+                expect(() => remotes.remove(remote1name)).toThrow(RemoteDoesNotExistError);
             });
 
             test('remove a remote that does not exist from a remotes file with one remote', () => {
@@ -199,7 +201,7 @@ describe('Remotes', () => {
                 const remote1url = 'https://revival.org';
                 (remotes as any).raw.set(remote1name, remote1url);
                 const remote2name = 'remote2';
-                expect(() => remotes.remove(remote2name)).toThrow();
+                expect(() => remotes.remove(remote2name)).toThrow(RemoteDoesNotExistError);
             });
         });
     });
@@ -223,7 +225,7 @@ describe('Remotes', () => {
                 Remotes.create(remotesPath);
                 const remotes = Remotes.load(remotesPath);
                 const remote1name = 'default';
-                expect(() => remotes.get(remote1name)).toThrow();
+                expect(() => remotes.get(remote1name)).toThrow(RemoteDoesNotExistError);
             });
 
             test('get a remote that does not exist from a remotes file with one remote', () => {
@@ -234,7 +236,7 @@ describe('Remotes', () => {
                 const remote1url = 'https://revival.org';
                 (remotes as any).raw.set(remote1name, remote1url);
                 const remote2name = 'remote2';
-                expect(() => remotes.get(remote2name)).toThrow();
+                expect(() => remotes.get(remote2name)).toThrow(RemoteDoesNotExistError);
             });
         });
     });

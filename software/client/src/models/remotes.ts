@@ -1,6 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { RemoteAlreadyExistsError } from '../errors/remote-already-exists';
+import { RemoteDoesNotExistError } from '../errors/remote-does-not-exist';
 
 export class Remotes {
     constructor(private path: string, private raw: Map<string, string>) {}
@@ -22,21 +24,21 @@ export class Remotes {
 
     add(name: string, url: string): void {
         if (this.raw.has(name)) {
-            throw new Error(`Remote ${name} already exists`);
+            throw new RemoteAlreadyExistsError(name);
         }
         this.raw.set(name, url);
     }
 
     remove(name: string): void {
         if (!this.raw.has(name)) {
-            throw new Error(`Remote ${name} does not exist`);
+            throw new RemoteDoesNotExistError(name);
         }
         this.raw.delete(name);
     }
 
     get(name: string): string {
         if (!this.raw.has(name)) {
-            throw new Error(`Remote ${name} does not exist`);
+            throw new RemoteDoesNotExistError(name);
         }
         return this.raw.get(name);
     }
