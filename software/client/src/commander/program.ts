@@ -9,7 +9,7 @@ import * as fs from 'fs';
 import { pull } from '../utils/pull';
 
 // Set version manually (can be updated during build)
-const VERSION = '1.4.4';
+const VERSION = '1.4.6';
 
 // Create a new commander program
 export const program = new Command();
@@ -290,43 +290,21 @@ packageCommand
         }
     });
 
-remoteCommand
-    .command('ls')
-    .description('Lists the remotes in the remotes file')
-    .action(async () => {
-        const remotes = Remotes.getDefault();
-        console.log(remotes.toString());
-    });
+packageCommand
+    .command('tree')
+    .description('Prints the dependency tree of the supplied package')
+    .argument('<id>', 'The id of the package to print the tree of')
+    .action(async (id: string) => {
+        // Create debug logger
+        const dbg = debug('apm:project:tree');
 
-remoteCommand
-    .command('add')
-    .description('Adds a remote to the remotes file')
-    .argument('<name>', 'The name of the remote')
-    .argument('<url>', 'The url of the remote')
-    .action(async (name: string, url: string) => {
         try {
-            const remotes = Remotes.getDefault();
-            remotes.add(name, url);
-            remotes.save();
-        } catch (error: unknown) {
-            if (error instanceof Error) {
-                console.error(error.message);
-            } else {
-                console.error(error);
-            }
-            process.exit(1);
-        }
-    });
-
-remoteCommand
-    .command('rm')
-    .description('Removes a remote from the remotes file')
-    .argument('<name>', 'The name of the remote')
-    .action(async (name: string) => {
-        try {
-            const remotes = Remotes.getDefault();
-            remotes.remove(name);
-            remotes.save();
+            // Get the default registry
+            const registry = await common.Registry.getDefault();
+            // Get the package tree
+            const result = await registry.getPackageTree(id);
+            // Print the dependency tree
+            console.log(result.toString());
         } catch (error: unknown) {
             if (error instanceof Error) {
                 console.error(error.message);
@@ -385,6 +363,53 @@ packageCommand
     .action(async (remote: string, id: string) => {
         try {
             await pull(remote, id);
+        } catch (error: unknown) {
+            if (error instanceof Error) {
+                console.error(error.message);
+            } else {
+                console.error(error);
+            }
+            process.exit(1);
+        }
+    });
+
+remoteCommand
+    .command('ls')
+    .description('Lists the remotes in the remotes file')
+    .action(async () => {
+        const remotes = Remotes.getDefault();
+        console.log(remotes.toString());
+    });
+
+remoteCommand
+    .command('add')
+    .description('Adds a remote to the remotes file')
+    .argument('<name>', 'The name of the remote')
+    .argument('<url>', 'The url of the remote')
+    .action(async (name: string, url: string) => {
+        try {
+            const remotes = Remotes.getDefault();
+            remotes.add(name, url);
+            remotes.save();
+        } catch (error: unknown) {
+            if (error instanceof Error) {
+                console.error(error.message);
+            } else {
+                console.error(error);
+            }
+            process.exit(1);
+        }
+    });
+
+remoteCommand
+    .command('rm')
+    .description('Removes a remote from the remotes file')
+    .argument('<name>', 'The name of the remote')
+    .action(async (name: string) => {
+        try {
+            const remotes = Remotes.getDefault();
+            remotes.remove(name);
+            remotes.save();
         } catch (error: unknown) {
             if (error instanceof Error) {
                 console.error(error.message);
