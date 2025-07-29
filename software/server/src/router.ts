@@ -67,18 +67,8 @@ export const appRouter = t.router({
             // Get the package ids
             const pkgIds = topologicalSort.map((pkg) => pkg.id);
 
-            // Filter out duplicate package ids (PRESERVE ORDER)
-            const seen = new Set<string>();
-            const uniquePkgIds = [];
-            for (const pkgId of pkgIds) {
-                if (!seen.has(pkgId)) {
-                    seen.add(pkgId);
-                    uniquePkgIds.push(pkgId);
-                }
-            }
-
             return {
-                pkgIds: uniquePkgIds,
+                pkgIds,
             };
         }),
 

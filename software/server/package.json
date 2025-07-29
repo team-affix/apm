@@ -1,6 +1,6 @@
 {
     "name": "@team-affix/apm-server",
-    "version": "1.2.2",
+    "version": "1.2.3",
     "description": "tRPC server for Agda Package Manager",
     "main": "dist/src/index.js",
     "types": "dist/src/index.d.ts",
@@ -38,7 +38,7 @@
         "typescript": "^5.8.3"
     },
     "dependencies": {
-        "@team-affix/apm-common": "^1.0.5",
+        "@team-affix/apm-common": "^1.0.6",
         "@trpc/server": "^11.4.3",
         "@types/cors": "^2.8.19",
         "cors": "^2.8.5",

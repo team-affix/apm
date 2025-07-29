@@ -1,10 +1,10 @@
 {
     "name": "@team-affix/apm-common",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "scripts": {
-        "build": "tsc",
+        "build": "rm -rf dist && tsc",
         "test": "jest --verbose",
         "test:watch": "jest --watch --verbose",
         "lint": "eslint src"

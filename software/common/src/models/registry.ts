@@ -86,7 +86,7 @@ class Registry {
     // Gets a package tree, which includes the package itself and all of its dependencies
     // It also includes dependencies which are overridden.
     // The order of the result is a valid topological sort of the package tree.
-    async getPackageTree(id: string): Promise<PackageTree> {
+    async getPackageTree(id: string, visitedIds: Set<string> = new Set<string>()): Promise<PackageTree> {
         // Get the debugger
         const dbg = debug('apm:common:models:Registry:getPackageTree');
 
@@ -100,7 +100,22 @@ class Registry {
         const deps = pkg.directDeps;
 
         // Get the package tree of the dependencies
-        const subTrees: PackageTree[] = await Promise.all(Array.from(deps).map((id) => this.getPackageTree(id)));
+        const subTrees: PackageTree[] = [];
+
+        // Add each dependency to the result if it has not been visited
+        for (const depId of deps) {
+            // If the dependency has been visited, skip it
+            if (visitedIds.has(depId)) continue;
+
+            // Push the id to the visited set
+            visitedIds.add(depId);
+
+            // Visit the child package
+            const subTree = await this.getPackageTree(depId, visitedIds);
+
+            // Add the package tree to the result
+            subTrees.push(subTree);
+        }
 
         // Return the package tree
         return new PackageTree(pkg, subTrees);

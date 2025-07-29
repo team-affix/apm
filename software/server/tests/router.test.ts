@@ -192,6 +192,7 @@ describe('router', () => {
                     rootId: pkg5.id,
                 });
 
+                // NOTE: pkg1 duplicate is not present
                 expect(result.pkgIds).toEqual([pkg1.id, pkg0.id, pkg3.id, pkg2.id, pkg4.id, pkg5.id]);
             });
         });

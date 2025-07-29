@@ -995,7 +995,7 @@ describe('models/registry', () => {
                 const registry = await Registry.load(registryPath);
                 // get the package tree
                 const result = await registry.getPackageTree(pkg0.id);
-                // expect the package tree to be empty
+                // expect the package tree to contain all packages
                 expect(result.toString()).toBe(new PackageTree(pkg0, []).toString());
             });
 
@@ -1008,7 +1008,7 @@ describe('models/registry', () => {
                 const registry = await Registry.load(registryPath);
                 // get the package tree
                 const result = await registry.getPackageTree(pkg1.id);
-                // expect the package tree to be empty
+                // expect the package tree to contain all packages
                 expect(result.toString()).toBe(new PackageTree(pkg1, [new PackageTree(pkg0, [])]).toString());
             });
 
@@ -1026,7 +1026,7 @@ describe('models/registry', () => {
                 const registry = await Registry.load(registryPath);
                 // get the package tree
                 const result = await registry.getPackageTree(pkg2.id);
-                // expect the package tree to be empty
+                // expect the package tree to contain all packages
                 expect(result.toString()).toBe(
                     new PackageTree(pkg2, [new PackageTree(pkg0, []), new PackageTree(pkg1, [])]).toString(),
                 );
@@ -1048,7 +1048,7 @@ describe('models/registry', () => {
                 const registry = await Registry.load(registryPath);
                 // get the package tree
                 const result = await registry.getPackageTree(pkg4.id);
-                // expect the package tree to be empty
+                // expect the package tree to contain all packages
                 expect(result.toString()).toBe(
                     new PackageTree(pkg4, [
                         new PackageTree(pkg2, [new PackageTree(pkg0, [])]),
@@ -1083,11 +1083,73 @@ describe('models/registry', () => {
                 const registry = await Registry.load(registryPath);
                 // get the package tree
                 const result = await registry.getPackageTree(pkg6.id);
-                // expect the package tree to be empty
+                // expect the package tree to contain all packages
                 expect(result.toString()).toBe(
                     new PackageTree(pkg6, [
                         new PackageTree(pkg4, [new PackageTree(pkg0, []), new PackageTree(pkg1, [])]),
                         new PackageTree(pkg5, [new PackageTree(pkg2, []), new PackageTree(pkg3, [])]),
+                    ]).toString(),
+                );
+            });
+
+            it('two children, each with same grandchild', async () => {
+                const pkg0 = await createPackage(path.join(localPackagesPath, 'pkg0.apm'), 'pkg0', depend([]));
+                const pkg1 = await createPackage(path.join(localPackagesPath, 'pkg1.apm'), 'pkg1', depend([pkg0]));
+                const pkg2 = await createPackage(path.join(localPackagesPath, 'pkg2.apm'), 'pkg2', depend([pkg0]));
+                const pkg3 = await createPackage(
+                    path.join(localPackagesPath, 'pkg3.apm'),
+                    'pkg3',
+                    depend([pkg1, pkg2]),
+                );
+                // load the packages into the registry
+                await loadPackagesIntoRegistry(registryPath, [pkg0, pkg1, pkg2, pkg3]);
+                // load the registry
+                const registry = await Registry.load(registryPath);
+                // get the package tree
+                const result = await registry.getPackageTree(pkg3.id);
+                // expect the package tree to contain only one instance of pkg0
+                expect(result.toString()).toBe(
+                    new PackageTree(pkg3, [
+                        new PackageTree(pkg1, [new PackageTree(pkg0, [])]),
+                        new PackageTree(pkg2, []), // the specific package (pkg0) is already in the tree
+                    ]).toString(),
+                );
+            });
+
+            it('two children, one child has a grandchild that is overridden by other child', async () => {
+                const pkg0Original = await createPackage(
+                    path.join(localPackagesPath, 'pkg0Original.apm'),
+                    'pkg0',
+                    depend([]),
+                );
+                const pkg0Override = await createPackage(
+                    path.join(localPackagesPath, 'pkg0Override.apm'),
+                    'pkg0',
+                    depend([]),
+                    new Map([['Main.agda', 'module pkg0.Main where']]),
+                );
+                const pkg1 = await createPackage(
+                    path.join(localPackagesPath, 'pkg1.apm'),
+                    'pkg1',
+                    depend([pkg0Original]),
+                );
+                const pkg2 = await createPackage(
+                    path.join(localPackagesPath, 'pkg2.apm'),
+                    'pkg2',
+                    depend([pkg0Override, pkg1]),
+                );
+                // load the packages into the registry
+                await loadPackagesIntoRegistry(registryPath, [pkg0Original, pkg0Override, pkg1, pkg2]);
+                // load the registry
+                const registry = await Registry.load(registryPath);
+                // get the package tree
+                const result = await registry.getPackageTree(pkg2.id);
+                // expect the package tree to include BOTH the original and overridden versions of pkg0
+                //     (this is because only duplicate IDs are removed from the tree, not names)
+                expect(result.toString()).toBe(
+                    new PackageTree(pkg2, [
+                        new PackageTree(pkg0Override, []),
+                        new PackageTree(pkg1, [new PackageTree(pkg0Original, [])]),
                     ]).toString(),
                 );
             });
