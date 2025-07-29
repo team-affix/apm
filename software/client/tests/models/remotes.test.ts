@@ -1,4 +1,4 @@
-import { Remotes } from '../../src/models/remotes';
+import { getAPIUrl, getHealthUrl, Remotes } from '../../src/models/remotes';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
@@ -236,6 +236,30 @@ describe('Remotes', () => {
                 const remote2name = 'remote2';
                 expect(() => remotes.get(remote2name)).toThrow();
             });
+        });
+    });
+
+    describe('getHealthUrl()', () => {
+        test('get the health url for a remote with NO TRAILING SLASH', () => {
+            const remote1url = 'https://revival.org';
+            expect(getHealthUrl(remote1url)).toBe('https://revival.org/health');
+        });
+
+        test('get the health url for a remote with TRAILING SLASH', () => {
+            const remote1url = 'https://revival.org/';
+            expect(getHealthUrl(remote1url)).toBe('https://revival.org/health');
+        });
+    });
+
+    describe('getAPIUrl()', () => {
+        test('get the api url for a remote with NO TRAILING SLASH', () => {
+            const remote1url = 'https://revival.org';
+            expect(getAPIUrl(remote1url)).toBe('https://revival.org/api/trpc');
+        });
+
+        test('get the api url for a remote with TRAILING SLASH', () => {
+            const remote1url = 'https://revival.org/';
+            expect(getAPIUrl(remote1url)).toBe('https://revival.org/api/trpc');
         });
     });
 });

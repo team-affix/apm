@@ -2,14 +2,15 @@ import { Command, Option } from 'commander';
 import { debug } from 'debug';
 import * as common from '@team-affix/apm-common';
 import { createTrpcClient } from '../trpc/client';
-import { Remotes } from '../models/remotes';
+import { getAPIUrl, Remotes } from '../models/remotes';
 import path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 import { pull } from '../utils/pull';
+import { healthCheck } from '../utils/health-check';
 
 // Set version manually (can be updated during build)
-const VERSION = '1.4.8';
+const VERSION = '1.4.9';
 
 // Create a new commander program
 export const program = new Command();
@@ -331,12 +332,17 @@ packageCommand
                 const resultSet = await registry.ls(new Set(ids));
                 result = Array.from(resultSet);
             } else {
-                // Get the remote URL
+                // Get the remotes
                 const remotes = Remotes.getDefault();
-                const url = remotes.get(options.remote);
+
+                // Get the server url
+                const serverUrl = remotes.get(options.remote);
+
+                // Get the api url
+                const apiUrl = getAPIUrl(serverUrl);
 
                 // Create a TRPC client
-                const trpcClient = createTrpcClient(url);
+                const trpcClient = createTrpcClient(apiUrl);
 
                 // Query the remote
                 const resultObject = await trpcClient.ls.query({ ids: ids });
@@ -418,4 +424,27 @@ remoteCommand
             }
             process.exit(1);
         }
+    });
+
+remoteCommand
+    .command('health')
+    .description('Checks the health of the remote')
+    .argument('<remote>', 'The remote to check')
+    .action(async (remote: string) => {
+        // Get the remotes
+        const remotes = Remotes.getDefault();
+
+        // Get the server url
+        const serverUrl = remotes.get(remote);
+
+        // Check the health of the remote
+        const health = await healthCheck(serverUrl);
+
+        if (!health) {
+            console.error(`[✗] Remote '${remote}' health check failed`);
+            process.exit(1);
+        }
+
+        // Print the health of the remote
+        console.log(`[✓] Remote '${remote}' is healthy`);
     });

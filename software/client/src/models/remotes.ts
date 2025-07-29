@@ -3,10 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 
 export class Remotes {
-    constructor(
-        private path: string,
-        private raw: Map<string, string>,
-    ) { }
+    constructor(private path: string, private raw: Map<string, string>) {}
 
     static load(path: string): Remotes {
         const json = JSON.parse(fs.readFileSync(path, 'utf8'));
@@ -45,7 +42,9 @@ export class Remotes {
     }
 
     toString(): string {
-        return Array.from(this.raw.entries()).map(([name, url]) => `${name}: ${url}`).join('\n');
+        return Array.from(this.raw.entries())
+            .map(([name, url]) => `${name}: ${url}`)
+            .join('\n');
     }
 
     static getDefault(): Remotes {
@@ -55,14 +54,20 @@ export class Remotes {
         const parentDir = path.dirname(defaultPath);
 
         // Create the parent directory if it doesn't exist
-        if (!fs.existsSync(parentDir))
-            fs.mkdirSync(parentDir, { recursive: true });
+        if (!fs.existsSync(parentDir)) fs.mkdirSync(parentDir, { recursive: true });
 
         // Create the remotes file if it doesn't exist
-        if (!fs.existsSync(defaultPath))
-            Remotes.create(defaultPath);
+        if (!fs.existsSync(defaultPath)) Remotes.create(defaultPath);
 
         // Load the remotes file
         return Remotes.load(defaultPath);
     }
+}
+
+export function getHealthUrl(serverUrl: string): string {
+    return new URL('/health', serverUrl).toString();
+}
+
+export function getAPIUrl(serverUrl: string): string {
+    return new URL('/api/trpc', serverUrl).toString();
 }
