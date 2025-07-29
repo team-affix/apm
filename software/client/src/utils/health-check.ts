@@ -8,8 +8,22 @@ export async function healthCheck(healthUrl: string): Promise<void> {
     // DEBUG: Log the health url
     dbg(`DEBUG - healthCheck: ${healthUrl}`);
 
-    // Make a simple HTTP request to the health endpoint
-    const response = await fetch(healthUrl);
+    let response: Response;
+
+    try {
+        // Make a simple HTTP request to the health endpoint
+        response = await fetch(healthUrl);
+    } catch (error: unknown) {
+        let msg: string;
+
+        if (error instanceof Error) {
+            msg = error.message;
+        } else {
+            msg = String(error);
+        }
+
+        throw new HealthCheckError(healthUrl, `Failed to fetch: ${msg}`);
+    }
 
     // DEBUG: Log the response
     dbg(`DEBUG - response: ${response}`);
