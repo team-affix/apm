@@ -1,0 +1,30 @@
+# ubuntu 24.04
+FROM ubuntu:24.04
+
+# install node
+RUN apt-get update && apt-get install -y nodejs npm
+
+# install apm-server
+RUN npm install -g @team-affix/apm-server
+
+# install cabal prerequisites
+RUN apt-get install -y zlib1g-dev libncurses5-dev
+
+# install curl and build-essential
+RUN apt-get update && apt-get install -y curl build-essential
+
+# install ghcup, cabal and ghc
+RUN curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh
+
+# install libgmp-dev
+RUN apt-get install -y libgmp-dev
+
+# install agda
+RUN bash -c "source ~/.ghcup/env && cabal update && cabal install Agda"
+
+# add cabal binaries output to the PATH
+# RUN echo 'export PATH="$HOME/.cabal/bin:$PATH"' >> ~/.bashrc
+RUN echo 'source ~/.ghcup/env' >> ~/.bashrc
+
+# run apm-server
+CMD ["apm-server"]
