@@ -9,7 +9,7 @@ import * as fs from 'fs';
 import { pull } from '../utils/pull';
 
 // Set version manually (can be updated during build)
-const VERSION = '1.4.6';
+const VERSION = '1.4.8';
 
 // Create a new commander program
 export const program = new Command();
