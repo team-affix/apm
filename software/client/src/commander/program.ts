@@ -402,22 +402,15 @@ remoteCommand
     .description('Adds a remote to the remotes file')
     .argument('<name>', 'The name of the remote')
     .argument('<url>', 'The url of the remote')
-    .addOption(new Option('--no-health-check', 'Do not check the health of the remote').default(false))
-    .action(async (name: string, url: string, options: { 'no-health-check': boolean }) => {
+    .option('--skip-health-check', 'Skip the health check of the remote')
+    .action(async (name: string, url: string, options: { skipHealthCheck: boolean }) => {
         try {
             // If the health check is not disabled, check the health of the remote
-            if (!options['no-health-check']) {
+            if (!options.skipHealthCheck) {
                 // Get the health url
                 const healthUrl = getHealthUrl(url);
-
                 // Check the health of the remote
-                const health = await healthCheck(healthUrl);
-
-                // If the health check failed, throw an error
-                if (!health) throw new Error(`[✗] Remote '${name}' health check failed`);
-
-                // Print the health of the remote
-                console.log(`[✓] Remote '${name}' is healthy`);
+                await healthCheck(healthUrl);
             }
 
             // Get the remotes
@@ -428,9 +421,6 @@ remoteCommand
 
             // Save the remotes
             remotes.save();
-
-            // Print the remotes
-            console.log(`Added remote '${name}' (${url})`);
         } catch (error: unknown) {
             let msg = `Failed to add remote '${name}'`;
 
@@ -470,23 +460,24 @@ remoteCommand
     .description('Checks the health of the remote')
     .argument('<remote>', 'The remote to check')
     .action(async (remote: string) => {
-        // Get the remotes
-        const remotes = Remotes.getDefault();
+        try {
+            // Get the remotes
+            const remotes = Remotes.getDefault();
 
-        // Get the server url
-        const serverUrl = remotes.get(remote);
+            // Get the server url
+            const serverUrl = remotes.get(remote);
 
-        // Get the health url
-        const healthUrl = getHealthUrl(serverUrl);
+            // Get the health url
+            const healthUrl = getHealthUrl(serverUrl);
 
-        // Check the health of the remote
-        const health = await healthCheck(healthUrl);
-
-        if (!health) {
-            console.error(`[✗] Remote '${remote}' health check failed`);
+            // Check the health of the remote
+            await healthCheck(healthUrl);
+        } catch (error: unknown) {
+            if (error instanceof Error) {
+                console.error(error.message);
+            } else {
+                console.error(error);
+            }
             process.exit(1);
         }
-
-        // Print the health of the remote
-        console.log(`[✓] Remote '${remote}' is healthy`);
     });
