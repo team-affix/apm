@@ -10,7 +10,7 @@ import { pull } from '../utils/pull';
 import { healthCheck } from '../utils/health-check';
 
 // Set version manually (can be updated during build)
-const VERSION = '1.4.9';
+const VERSION = '1.4.10';
 
 // Create a new commander program
 export const program = new Command();
