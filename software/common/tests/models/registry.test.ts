@@ -934,13 +934,13 @@ describe('models/registry', () => {
             return trees1.every((tree, index) => tree.toString() === trees2[index].toString());
         };
 
-        beforeEach(() => {
+        beforeEach(async () => {
             // If the registry dir exists, remove it
             if (fs.existsSync(registryPath)) fs.rmSync(registryPath, { recursive: true, force: true });
             // If the local packages dir exists, remove it
             if (fs.existsSync(localPackagesPath)) fs.rmSync(localPackagesPath, { recursive: true, force: true });
-            // create the registry dir
-            fs.mkdirSync(registryPath, { recursive: true });
+            // create the registry
+            await Registry.create(registryPath);
             // create the local packages dir
             fs.mkdirSync(localPackagesPath, { recursive: true });
         });
@@ -1152,6 +1152,99 @@ describe('models/registry', () => {
                         new PackageTree(pkg1, [new PackageTree(pkg0Original, [])]),
                     ]).toString(),
                 );
+            });
+
+            it('two children, each with two grandchildren, each with two great grandchildren, two great grandchildren are duplicates', async () => {
+                // create the 15 packages - 2 duplicates
+                const pkg2 = await createPackage(path.join(localPackagesPath, 'pkg2.apm'), 'pkg2', depend([]));
+                const pkg3 = await createPackage(path.join(localPackagesPath, 'pkg3.apm'), 'pkg3', depend([]));
+                const pkg4 = await createPackage(path.join(localPackagesPath, 'pkg4.apm'), 'pkg4', depend([]));
+                const pkg5 = await createPackage(path.join(localPackagesPath, 'pkg5.apm'), 'pkg5', depend([]));
+                const pkg6 = await createPackage(path.join(localPackagesPath, 'pkg6.apm'), 'pkg6', depend([]));
+                const pkg7 = await createPackage(path.join(localPackagesPath, 'pkg7.apm'), 'pkg7', depend([]));
+                const pkg8 = await createPackage(
+                    path.join(localPackagesPath, 'pkg8.apm'),
+                    'pkg8',
+                    depend([pkg2, pkg3]),
+                );
+                const pkg9 = await createPackage(
+                    path.join(localPackagesPath, 'pkg9.apm'),
+                    'pkg9',
+                    depend([pkg4, pkg5]),
+                );
+                const pkg10 = await createPackage(
+                    path.join(localPackagesPath, 'pkg10.apm'),
+                    'pkg10',
+                    depend([pkg6, pkg2]),
+                );
+                const pkg11 = await createPackage(
+                    path.join(localPackagesPath, 'pkg11.apm'),
+                    'pkg11',
+                    depend([pkg2, pkg7]),
+                );
+                const pkg12 = await createPackage(
+                    path.join(localPackagesPath, 'pkg12.apm'),
+                    'pkg12',
+                    depend([pkg8, pkg9]),
+                );
+                const pkg13 = await createPackage(
+                    path.join(localPackagesPath, 'pkg13.apm'),
+                    'pkg13',
+                    depend([pkg10, pkg11]),
+                );
+                const pkg14 = await createPackage(
+                    path.join(localPackagesPath, 'pkg14.apm'),
+                    'pkg14',
+                    depend([pkg12, pkg13]),
+                );
+                // load the packages into the registry
+                await loadPackagesIntoRegistry(registryPath, [
+                    pkg2,
+                    pkg3,
+                    pkg4,
+                    pkg5,
+                    pkg6,
+                    pkg7,
+                    pkg8,
+                    pkg9,
+                    pkg10,
+                    pkg11,
+                    pkg12,
+                    pkg13,
+                    pkg14,
+                ]);
+                // load the registry
+                const registry = await Registry.load(registryPath);
+                // get the package tree
+                const result = await registry.getPackageTree(pkg14.id);
+                // expect the package tree to include BOTH the original and overridden versions of pkg0
+                //     (this is because only duplicate IDs are removed from the tree, not names)
+                expect(result.toString()).toBe(
+                    new PackageTree(pkg14, [
+                        new PackageTree(pkg12, [
+                            new PackageTree(pkg8, [new PackageTree(pkg2, []), new PackageTree(pkg3, [])]),
+                            new PackageTree(pkg9, [new PackageTree(pkg4, []), new PackageTree(pkg5, [])]),
+                        ]),
+                        new PackageTree(pkg13, [
+                            new PackageTree(pkg10, [new PackageTree(pkg6, []) /*, new PackageTree(pkg2, [])*/]), // pkg2 is a duplicate
+                            new PackageTree(pkg11, [/*new PackageTree(pkg2, []),*/ new PackageTree(pkg7, [])]), // pkg2 is a duplicate
+                        ]),
+                    ]).toString(),
+                );
+            });
+        });
+        describe('failure cases', () => {
+            it('root package not in registry', async () => {
+                const pkg0 = await createPackage(
+                    path.join(localPackagesPath, 'pkg0.apm'),
+                    'pkg0',
+                    depend([]),
+                    new Map(),
+                );
+                // load the registry
+                const registry = await Registry.load(registryPath);
+                // get the package tree
+                await expect(registry.getPackageTree(pkg0.id)).rejects.toThrow(PackageLoadError);
             });
         });
     });
