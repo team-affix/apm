@@ -414,11 +414,16 @@ remoteCommand
             // Print the remotes
             console.log(`Added remote '${name}' (${url})`);
         } catch (error: unknown) {
+            let msg = `Failed to add remote '${name}'`;
+
             if (error instanceof Error) {
-                console.error(error.message);
+                msg += `: ${error.message}`;
             } else {
-                console.error(error);
+                msg += `: ${error}`;
             }
+
+            console.error(msg);
+
             process.exit(1);
         }
     });
