@@ -22,9 +22,8 @@ RUN apt-get install -y libgmp-dev
 # install agda
 RUN bash -c "source ~/.ghcup/env && cabal update && cabal install Agda"
 
-# add cabal binaries output to the PATH
-# RUN echo 'export PATH="$HOME/.cabal/bin:$PATH"' >> ~/.bashrc
-RUN echo 'source ~/.ghcup/env' >> ~/.bashrc
+# add cabal and ghcup binaries to the PATH
+ENV PATH="/root/.cabal/bin:/root/.ghcup/bin:${PATH}"
 
 # run apm-server
 CMD ["apm-server"]
