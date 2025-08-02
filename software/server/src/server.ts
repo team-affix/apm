@@ -4,6 +4,7 @@ import express from 'express';
 import cors from 'cors';
 import { createExpressMiddleware } from '@trpc/server/adapters/express';
 import { appRouter } from './router';
+import pkg from '../package.json';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -30,6 +31,7 @@ app.use(
 
 // Start server
 app.listen(port, () => {
+    console.log(`🔄 Version: ${pkg.version}`);
     console.log(`🚀 tRPC server running on http://localhost:${port}`);
     console.log(`📡 tRPC endpoint: http://localhost:${port}/api/trpc`);
     console.log(`❤️  Health check: http://localhost:${port}/health`);

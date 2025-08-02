@@ -8,9 +8,8 @@ import * as os from 'os';
 import * as fs from 'fs';
 import { pull } from '../utils/pull';
 import { healthCheck } from '../utils/health-check';
-
-// Set version manually (can be updated during build)
-const VERSION = '1.4.10';
+import { version as VERSION } from '../../package.json';
+import { push } from '../utils/push';
 
 // Create a new commander program
 export const program = new Command();
@@ -379,6 +378,34 @@ packageCommand
 
             // Pull the package
             await pull(apiUrl, id);
+        } catch (error: unknown) {
+            if (error instanceof Error) {
+                console.error(error.message);
+            } else {
+                console.error(error);
+            }
+            process.exit(1);
+        }
+    });
+
+packageCommand
+    .command('push')
+    .description('Pushes a package to the remote')
+    .argument('<remote>', 'The remote to push to')
+    .argument('<id>', 'The id of the package to push')
+    .action(async (remote: string, id: string) => {
+        try {
+            // Get the remotes
+            const remotes = Remotes.getDefault();
+
+            // Get the server url
+            const serverUrl = remotes.get(remote);
+
+            // Get the api url
+            const apiUrl = getAPIUrl(serverUrl);
+
+            // Push the package
+            await push(apiUrl, id);
         } catch (error: unknown) {
             if (error instanceof Error) {
                 console.error(error.message);
