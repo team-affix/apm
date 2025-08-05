@@ -12,6 +12,8 @@ import { Readable } from 'stream';
 import { promisify } from 'util';
 import { exec, ExecException } from 'child_process';
 import CheckProjectError from '../errors/check-project';
+import { ProjectRemoveError } from '../errors/project-remove';
+import { ProjectAddError } from '../errors/project-add';
 
 // Promisify the exec function
 const execAsync = promisify(exec);
@@ -103,9 +105,6 @@ async function writeDirectDepsFile(cwd: string, deps: Set<string>): Promise<void
 
         // If the directory does not exist, throw an error
         if (!fs.existsSync(cwd)) throw new WriteDepsFileError(cwd, 'Directory does not exist');
-
-        // Check if the file/folder exists, and remove it if it does
-        if (fs.existsSync(depsPath)) throw new WriteDepsFileError(cwd, 'File already exists');
 
         // Create the write stream
         const writeStream = fs.createWriteStream(depsPath);
@@ -364,6 +363,42 @@ export class Project {
                 throw error;
             }
         }
+    }
+
+    // Add a dependency to the project
+    async add(pkg: Package): Promise<void> {
+        // Get the debugger
+        const dbg = debug('apm:common:models:project:add');
+
+        // Indicate that we are adding a dependency to the project
+        dbg(`Adding dependency ${pkg.id} to project at ${this.cwd}`);
+
+        // If the dependency is already in the project, throw an error
+        if (this.directDeps.has(pkg.id)) throw new ProjectAddError(this.cwd, pkg.id, 'Dependency already exists');
+
+        // Add the dependency to the project
+        this.directDeps.add(pkg.id);
+
+        // Write the direct dependencies to the deps file
+        await writeDirectDepsFile(this.cwd, this.directDeps);
+    }
+
+    // Remove a dependency from the project
+    async remove(pkg: Package): Promise<void> {
+        // Get the debugger
+        const dbg = debug('apm:common:models:project:remove');
+
+        // Indicate that we are removing a dependency from the project
+        dbg(`Removing dependency ${pkg.id} from project at ${this.cwd}`);
+
+        // If the dependency is not in the project, throw an error
+        if (!this.directDeps.has(pkg.id)) throw new ProjectRemoveError(this.cwd, pkg.id, 'Dependency not found');
+
+        // Remove the dependency from the project
+        this.directDeps.delete(pkg.id);
+
+        // Write the direct dependencies to the deps file
+        await writeDirectDepsFile(this.cwd, this.directDeps);
     }
 }
 

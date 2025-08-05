@@ -77,7 +77,7 @@ export const lsCommand = new Command()
     .name('ls')
     .description('Query the given package IDs')
     .addOption(new Option('-r, --remote <remote>', 'The remote to query').default(undefined))
-    .argument('<ids...>', 'The ids to query')
+    .argument('[ids...]', 'The ids to query')
     .action(async (ids: string[], options: { remote: string }) => {
         try {
             let result: string[] = [];
