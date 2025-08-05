@@ -21,7 +21,6 @@ program.addCommand(projectCommands.installCommand);
 program.addCommand(projectCommands.cleanCommand);
 program.addCommand(projectCommands.checkCommand);
 program.addCommand(projectCommands.packCommand);
-program.addCommand(projectCommands.unpackCommand);
 // program.addCommand(projectCommands.treeCommand);
 
 // Add package shorthands

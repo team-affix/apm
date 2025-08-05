@@ -1,10 +1,8 @@
 import { createTrpcClient } from '../trpc/client';
 import * as common from '@team-affix/apm-common';
 import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
 
-export function log(...args: any[]) {
+export function log(...args: unknown[]) {
     if (process.env.NODE_ENV !== 'test') {
         console.log(...args);
     }

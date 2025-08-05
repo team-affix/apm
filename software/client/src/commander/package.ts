@@ -1,5 +1,4 @@
 import { Command, Option } from 'commander';
-import { debug } from 'debug';
 import * as common from '@team-affix/apm-common';
 import { createTrpcClient } from '../trpc/client';
 import { getAPIUrl, Remotes } from '../models/remotes';
@@ -12,9 +11,6 @@ export const registerCommand = new Command()
     .argument('<source>', 'The source path for the apm file')
     .argument('[id]', 'The expected id of the package, if one is known')
     .action(async (source: string, id?: string) => {
-        // Create debug logger
-        const dbg = debug('apm:project:register');
-
         try {
             // Load the package
             const pkg = await common.Package.load(source);
@@ -37,9 +33,6 @@ export const infoCommand = new Command()
     .description('Prints the details of the supplied package')
     .argument('<source>', 'The source path for the apm file')
     .action(async (source: string) => {
-        // Create debug logger
-        const dbg = debug('apm:project:stat');
-
         try {
             // Load the package
             const pkg = await common.Package.load(source);
@@ -63,9 +56,6 @@ export const treeCommand = new Command()
     .description('Prints the dependency tree of the supplied package')
     .argument('<id>', 'The id of the package to print the tree of')
     .action(async (id: string) => {
-        // Create debug logger
-        const dbg = debug('apm:project:tree');
-
         try {
             // Get the default registry
             const registry = await common.Registry.getDefault();
@@ -90,7 +80,7 @@ export const lsCommand = new Command()
     .argument('<ids...>', 'The ids to query')
     .action(async (ids: string[], options: { remote: string }) => {
         try {
-            var result: string[] = [];
+            let result: string[] = [];
 
             // If no remote is specified, use the local registry
             if (options.remote === undefined) {

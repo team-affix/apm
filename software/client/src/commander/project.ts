@@ -5,16 +5,39 @@ import * as common from '@team-affix/apm-common';
 export const initCommand = new Command()
     .name('init')
     .description('Initializes an apm project in the current directory')
-    .argument('<project-name>', 'The name of the project')
-    .action(async (projectName: string) => {
-        // Create debug logger
-        const dbg = debug('apm:project:create');
-
+    .argument('[project-name]', 'The name of the project. If not provided, --pkg must be used.')
+    .option('-p, --pkg <pkg>', 'The root package to use')
+    .action(async (projectName: string, options: { pkg?: string }) => {
         try {
             // Get the current working directory
             const cwd = process.cwd();
+
+            let initArgs: { pkg: common.Package } | { projectName: string };
+
+            // If --pkg is supplied AND project-name is provided, throw an error
+            if (options.pkg && projectName) {
+                console.error('Error: --pkg and [project-name] cannot be used together');
+                process.exit(1);
+            }
+
+            // If a package is provided, use it as the root package
+            if (options.pkg) {
+                // Get the default registry
+                const registry = await common.Registry.getDefault();
+                // Get the package from the registry
+                const pkg = await registry.get(options.pkg);
+                // Set the init args
+                initArgs = { pkg };
+            } else if (projectName) {
+                // Set the init args
+                initArgs = { projectName };
+            } else {
+                console.error('Error: [project-name] is required if --pkg is not provided');
+                process.exit(1);
+            }
+
             // Create the project
-            await common.Project.init(cwd, { projectName });
+            await common.Project.init(cwd, initArgs);
         } catch (error: unknown) {
             if (error instanceof Error) {
                 console.error(error.message);
@@ -122,9 +145,6 @@ export const packCommand = new Command()
     .description('Packs the current project into an apm file')
     .argument('<destination>', 'The destination path for the package')
     .action(async (destination: string) => {
-        // Create debug logger
-        const dbg = debug('apm:project:pack');
-
         try {
             // Get the current working directory
             const cwd = process.cwd();
@@ -146,38 +166,10 @@ export const packCommand = new Command()
         }
     });
 
-export const unpackCommand = new Command()
-    .name('unpack')
-    .description('Unpacks an apm file into a project in the current directory')
-    .argument('<source>', 'The source path for the apm file')
-    .action(async (source: string) => {
-        // Create debug logger
-        const dbg = debug('apm:project:unpack');
-
-        try {
-            // Get the current working directory
-            const cwd = process.cwd();
-            // Load the package
-            const pkg = await common.Package.load(source);
-            // Unpack the package
-            await common.Project.init(cwd, { pkg });
-        } catch (error: unknown) {
-            if (error instanceof Error) {
-                console.error(error.message);
-            } else {
-                console.error(error);
-            }
-            process.exit(1);
-        }
-    });
-
 export const treeCommand = new Command()
     .name('tree')
     .description('Prints the dependency tree of the current project')
     .action(async () => {
-        // Create debug logger
-        const dbg = debug('apm:project:tree');
-
         try {
             // Get the current working directory
             const cwd = process.cwd();
@@ -208,5 +200,4 @@ export const projectCommand = new Command()
     .addCommand(cleanCommand)
     .addCommand(checkCommand)
     .addCommand(packCommand)
-    .addCommand(unpackCommand)
     .addCommand(treeCommand);
