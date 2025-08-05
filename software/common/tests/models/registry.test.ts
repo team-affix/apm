@@ -2079,6 +2079,19 @@ describe('models/registry', () => {
             expect(result.size).toBe(0);
         });
 
+        it('1 package in registry, empty set input', async () => {
+            const pkg0 = await createPackage(path.join(localPackagesPath, 'pkg0.apm'), 'pkg0', depend([]), new Map());
+            // load the registry
+            const registry = await Registry.load(registryPath);
+            // put the package
+            await registry.put(pkg0);
+            // list the packages
+            const result = await registry.ls(new Set<string>());
+            // expect the result to be the package
+            expect(result.size).toBe(1);
+            expect(Array.from(result)).toEqual([pkg0.id]);
+        });
+
         it('1 package in registry, ls that package', async () => {
             const pkg0 = await createPackage(path.join(localPackagesPath, 'pkg0.apm'), 'pkg0', depend([]), new Map());
             // load the registry
@@ -2145,6 +2158,21 @@ describe('models/registry', () => {
             // expect the result to be the package in the registry
             expect(result.size).toBe(1);
             expect(Array.from(result)).toEqual([pkg0.id]);
+        });
+
+        it('2 packages in registry, empty set input', async () => {
+            const pkg0 = await createPackage(path.join(localPackagesPath, 'pkg0.apm'), 'pkg0', depend([]), new Map());
+            const pkg1 = await createPackage(path.join(localPackagesPath, 'pkg1.apm'), 'pkg1', depend([]), new Map());
+            // load the registry
+            const registry = await Registry.load(registryPath);
+            // put the package
+            await registry.put(pkg0);
+            await registry.put(pkg1);
+            // list the packages
+            const result = await registry.ls(new Set<string>());
+            // expect the result to be the packages
+            expect(result.size).toBe(2);
+            expect(result).toEqual(new Set([pkg0.id, pkg1.id]));
         });
     });
 });

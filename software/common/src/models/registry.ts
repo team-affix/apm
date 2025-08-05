@@ -16,7 +16,7 @@ const PACKAGES_DIR_NAME = 'packages';
 
 // Get the path to a package
 function getPackagePath(cwd: string, id: string): string {
-    return path.join(cwd, PACKAGES_DIR_NAME, `${id}.apm`);
+    return path.join(cwd, PACKAGES_DIR_NAME, `${id}`);
 }
 
 // Registry model
@@ -210,11 +210,7 @@ class Registry {
 
         // Check if the package id matches the expected id
         if (expectedId && pkg.id !== expectedId)
-            throw new VetPackageError(
-                pkg.name,
-                pkg.id,
-                `Package id does not match expected id. Expected: ${expectedId}`,
-            );
+            throw new VetPackageError(pkg.id, `Package id does not match expected id. Expected: ${expectedId}`);
 
         // Create a project folder
         const projectDirPath = fs.mkdtempSync(path.join(os.tmpdir(), `apm-vet-${pkg.name}-${pkg.id}`));
@@ -225,7 +221,6 @@ class Registry {
         // Check for any illegal files (anything with an extension other than .agda or .md) within the root source
         if (project.rootSource.miscFiles.length > 0)
             throw new VetPackageError(
-                pkg.name,
                 pkg.id,
                 `Package contains illegal files:\n${project.rootSource.miscFiles.join('\n')}`,
             );
@@ -255,7 +250,7 @@ class Registry {
         const dest = getPackagePath(this.cwd, pkg.id);
 
         // Error if the package is already registered
-        if (fs.existsSync(dest)) throw new PutPackageError(pkg.name, pkg.id, 'Package already registered');
+        if (fs.existsSync(dest)) throw new PutPackageError(pkg.id, 'Package already registered');
 
         // Vet the package
         await this.vet(pkg, expectedId);
@@ -273,10 +268,28 @@ class Registry {
         const dbg = debug('apm:common:models:Registry:ls');
 
         // Indicate that we are listing packages
-        dbg(`Listing packages`);
+        dbg(`Listing all packages`);
 
         // Create a result set
         const result = new Set<string>();
+
+        // If the set is empty, list all packages in the registry
+        if (pkgIds.size === 0) {
+            // Get the packages directory
+            const packagesDir = path.join(this.cwd, PACKAGES_DIR_NAME);
+
+            // Get the files in the packages directory
+            const files = fs.readdirSync(packagesDir);
+
+            // For each file, the file name IS the package id
+            for (const file of files) result.add(file);
+
+            // Return the result
+            return result;
+        }
+
+        // Indicate that we are listing packages
+        dbg(`Listing specified packages`);
 
         // For each package, add it to the result
         for (const id of pkgIds) {
