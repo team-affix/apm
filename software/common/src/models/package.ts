@@ -52,7 +52,7 @@ function deserializeDirectDeps(deps: string): Set<string> {
 }
 
 // Compute the id of the package
-async function computeId(stream: Readable): Promise<string> {
+async function computeId(name: string, stream: Readable): Promise<string> {
     // Get the debugger
     const dbg = debug('apm:common:models:Package:computeId');
 
@@ -67,14 +67,17 @@ async function computeId(stream: Readable): Promise<string> {
         hash.update(chunk);
     }
 
-    // Compute the id
-    const result = hash.digest('hex');
+    // Compute the hex digest
+    const hex = hash.digest('hex');
+
+    // Add the name to the beginning of the hex
+    const id = `${name}@${hex}`;
 
     // Indicate that we have computed the id
-    dbg(`Computed id: ${result}`);
+    dbg(`Computed id: ${id}`);
 
     // Return the id
-    return result;
+    return id;
 }
 
 // A package model
@@ -160,8 +163,8 @@ export class Package {
         // Open a file stream
         const fileStream = fs.createReadStream(filePath);
 
-        // // Get the id of the package
-        const id = await computeId(fileStream);
+        // Get the id of the package
+        const id = await computeId(name, fileStream);
 
         // Parse the dependencies
         const directDeps = deserializeDirectDeps(depsRaw);

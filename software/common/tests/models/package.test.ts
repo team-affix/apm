@@ -354,22 +354,24 @@ describe('models/package', () => {
     // });
 
     describe('Package.computeId()', () => {
-        const genericTest = async (binary: Buffer, expectedId: string) => {
+        const genericTest = async (name: string, binary: Buffer, expectedId: string) => {
             // Create a readable stream from the binary
             const stream = Readable.from(binary);
             // Compute the id
-            const id = await PackageTest.computeId(stream);
-            expect(id).toBe(expectedId);
+            const id = await PackageTest.computeId(name, stream);
+            expect(id).toBe(`${name}@${expectedId}`);
         };
 
         it('should compute the id correctly for small binary', () =>
             genericTest(
+                'name',
                 Buffer.from([0x01, 0x02, 0x03, 0x04]),
                 '9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a',
             ));
 
         it('should compute the id correctly for medium binary', () =>
             genericTest(
+                'Calculus',
                 Buffer.from([
                     0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
                 ]),
@@ -378,6 +380,7 @@ describe('models/package', () => {
 
         it('should compute the id correctly for large binary', () =>
             genericTest(
+                'RealWorld',
                 Buffer.from([
                     0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
                     0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20,

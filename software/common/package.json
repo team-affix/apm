@@ -7,7 +7,8 @@
         "build": "rm -rf dist && tsc",
         "test": "jest --verbose",
         "test:watch": "jest --watch --verbose",
-        "lint": "eslint src"
+        "lint": "eslint src",
+        "prepublishOnly": "npm run build && npm run lint && npm run test"
     },
     "devDependencies": {
         "@eslint/js": "^9.30.0",
