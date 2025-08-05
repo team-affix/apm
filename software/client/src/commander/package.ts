@@ -2,17 +2,9 @@ import { Command, Option } from 'commander';
 import { debug } from 'debug';
 import * as common from '@team-affix/apm-common';
 import { createTrpcClient } from '../trpc/client';
-import { getAPIUrl, getHealthUrl, Remotes } from '../models/remotes';
-import path from 'path';
-import * as os from 'os';
-import * as fs from 'fs';
+import { getAPIUrl, Remotes } from '../models/remotes';
 import { pull } from '../utils/pull';
-import { healthCheck } from '../utils/health-check';
-import { version as VERSION } from '../../package.json';
 import { push } from '../utils/push';
-
-// // Create a new command group for package management
-// const packageCommand = program.command('package').description('Manages packages');
 
 export const registerCommand = new Command()
     .name('register')

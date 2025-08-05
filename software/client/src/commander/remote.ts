@@ -1,15 +1,6 @@
-import { Command, Option } from 'commander';
-import { debug } from 'debug';
-import * as common from '@team-affix/apm-common';
-import { createTrpcClient } from '../trpc/client';
-import { getAPIUrl, getHealthUrl, Remotes } from '../models/remotes';
-import path from 'path';
-import * as os from 'os';
-import * as fs from 'fs';
-import { pull } from '../utils/pull';
+import { Command } from 'commander';
+import { getHealthUrl, Remotes } from '../models/remotes';
 import { healthCheck } from '../utils/health-check';
-import { version as VERSION } from '../../package.json';
-import { push } from '../utils/push';
 
 export const lsCommand = new Command()
     .name('ls')

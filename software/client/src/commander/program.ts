@@ -1,15 +1,5 @@
-import { Command, Option } from 'commander';
-import { debug } from 'debug';
-import * as common from '@team-affix/apm-common';
-import { createTrpcClient } from '../trpc/client';
-import { getAPIUrl, getHealthUrl, Remotes } from '../models/remotes';
-import path from 'path';
-import * as os from 'os';
-import * as fs from 'fs';
-import { pull } from '../utils/pull';
-import { healthCheck } from '../utils/health-check';
+import { Command } from 'commander';
 import { version as VERSION } from '../../package.json';
-import { push } from '../utils/push';
 import * as projectCommands from './project';
 import * as packageCommands from './package';
 import * as remoteCommands from './remote';
