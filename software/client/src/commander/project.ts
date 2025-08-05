@@ -145,7 +145,7 @@ export const checkCommand = new Command()
 
 export const packCommand = new Command()
     .name('pack')
-    .description('Packs the current project into an apm file')
+    .description('Packages the current project, and registers it locally')
     .action(async () => {
         try {
             // Get the current working directory
