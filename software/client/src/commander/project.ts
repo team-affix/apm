@@ -1,6 +1,9 @@
 import { Command } from 'commander';
 import { debug } from 'debug';
 import * as common from '@team-affix/apm-common';
+import path from 'path';
+import * as os from 'os';
+import * as fs from 'fs';
 
 export const initCommand = new Command()
     .name('init')
@@ -143,8 +146,7 @@ export const checkCommand = new Command()
 export const packCommand = new Command()
     .name('pack')
     .description('Packs the current project into an apm file')
-    .argument('<destination>', 'The destination path for the package')
-    .action(async (destination: string) => {
+    .action(async () => {
         try {
             // Get the current working directory
             const cwd = process.cwd();
@@ -152,9 +154,17 @@ export const packCommand = new Command()
             const project = await common.Project.load(cwd);
             // Pack the project
             const archive = await project.rootSource.getArchive();
+            // Create a file destination in temp directory
+            const destination = path.join(os.tmpdir(), `apm-pkg-tmp-${project.name}.apm`);
+            // If the destination file already exists, delete it
+            if (fs.existsSync(destination)) fs.rmSync(destination);
             // Construct package with archive
             const pkg = await common.Package.create(destination, project.name, project.directDeps, archive);
-            // Write the package to the current working directory
+            // Get the default registry
+            const registry = await common.Registry.getDefault();
+            // Register the package
+            await registry.put(pkg);
+            // Write the package ID to the terminal
             console.log(`Package created: ${pkg.id}`);
         } catch (error: unknown) {
             if (error instanceof Error) {
