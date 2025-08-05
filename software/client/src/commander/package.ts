@@ -5,29 +5,6 @@ import { getAPIUrl, Remotes } from '../models/remotes';
 import { pull } from '../utils/pull';
 import { push } from '../utils/push';
 
-export const registerCommand = new Command()
-    .name('register')
-    .description('Registers a package in the registry')
-    .argument('<source>', 'The source path for the apm file')
-    .argument('[id]', 'The expected id of the package, if one is known')
-    .action(async (source: string, id?: string) => {
-        try {
-            // Load the package
-            const pkg = await common.Package.load(source);
-            // Get the default registry
-            const registry = await common.Registry.getDefault();
-            // Register the package
-            await registry.put(pkg, id);
-        } catch (error: unknown) {
-            if (error instanceof Error) {
-                console.error(error.message);
-            } else {
-                console.error(error);
-            }
-            process.exit(1);
-        }
-    });
-
 export const infoCommand = new Command()
     .name('info')
     .description('Prints the details of the supplied package')
@@ -177,7 +154,6 @@ export const pushCommand = new Command()
 export const packageCommand = new Command()
     .name('package')
     .description('Manages packages')
-    .addCommand(registerCommand)
     .addCommand(infoCommand)
     .addCommand(treeCommand)
     .addCommand(lsCommand)
