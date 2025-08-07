@@ -8,17 +8,19 @@ import { push } from '../utils/push';
 export const infoCommand = new Command()
     .name('info')
     .description('Prints the details of the supplied package')
-    .argument('<source>', 'The source path for the apm file')
-    .action(async (source: string) => {
+    .argument('<id>', 'The id of the package to print the details of')
+    .action(async (id: string) => {
         try {
-            // Load the package
-            const pkg = await common.Package.load(source);
+            // Get the default registry
+            const registry = await common.Registry.getDefault();
+            // Get the package
+            const pkg = await registry.get(id);
             // Print the details
-            console.log(`Package file: ${pkg.filePath}`);
-            console.log(`Package name: ${pkg.name}`);
-            console.log(`Package id: ${pkg.id}`);
-            console.log(`Package dependencies: ${JSON.stringify(Array.from(pkg.directDeps))}`);
-            console.log(`Package archive offset: ${pkg.archiveOffset}`);
+            console.log(`File: ${pkg.filePath}`);
+            console.log(`Name: ${pkg.name}`);
+            console.log(`Id: ${pkg.id}`);
+            console.log(`Direct deps: ${JSON.stringify(Array.from(pkg.directDeps))}`);
+            console.log(`Archive offset: ${pkg.archiveOffset}`);
         } catch (error: unknown) {
             if (error instanceof Error) {
                 console.error(error.message);
