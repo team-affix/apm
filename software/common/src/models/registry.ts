@@ -53,18 +53,6 @@ class Registry {
         return await Registry.load(cwd);
     }
 
-    // Get the default registry
-    static async getDefault(): Promise<Registry> {
-        // Create the default registry path
-        const defaultRegistryPath = path.join(os.homedir(), '.apm', 'common', 'registry');
-
-        // If the default registry path does not exist, create it
-        if (!fs.existsSync(defaultRegistryPath)) return await Registry.create(defaultRegistryPath);
-
-        // Return the default registry
-        return await Registry.load(defaultRegistryPath);
-    }
-
     // Get a package from the registry
     async get(id: string): Promise<Package> {
         // Get the debugger

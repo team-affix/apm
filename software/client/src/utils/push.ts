@@ -1,6 +1,6 @@
 import { createTrpcClient } from '../trpc/client';
-import * as common from '@team-affix/apm-common';
 import * as fs from 'fs';
+import { getRegistry } from '../models/registry';
 
 export function log(...args: unknown[]) {
     if (process.env.NODE_ENV !== 'test') {
@@ -10,7 +10,7 @@ export function log(...args: unknown[]) {
 
 export async function push(apiUrl: string, rootId: string): Promise<void> {
     // Get the default registry
-    const registry = await common.Registry.getDefault();
+    const registry = await getRegistry();
 
     // Get the package tree
     const tree = await registry.getPackageTree(rootId);

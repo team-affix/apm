@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { Package, Registry, Source } from '@team-affix/apm-common';
 import { Remotes } from '../../src/models/remotes';
+import { getRegistry } from '../../src/models/registry';
 
 // Mock the function createTrpcClient
 jest.mock('../../src/trpc/client', () => {
@@ -14,6 +15,11 @@ jest.mock('../../src/trpc/client', () => {
         createTrpcClient: jest.fn(),
     };
 });
+
+// Mock the getRegistry function
+jest.mock('../../src/models/registry', () => ({
+    getRegistry: jest.fn(),
+}));
 
 import { pull } from '../../src/utils/pull';
 import { createTrpcClient } from '../../src/trpc/client';
@@ -46,7 +52,7 @@ describe('pull', () => {
         await Registry.create(mockDefaultRegistryPath);
 
         // Mock the default registry with one we control
-        jest.spyOn(Registry, 'getDefault').mockResolvedValue(await Registry.load(mockDefaultRegistryPath));
+        (getRegistry as jest.Mock).mockImplementation(async () => await Registry.load(mockDefaultRegistryPath));
 
         // Construct a remotes file that we control
         const remotesPath = path.join(testCaseDir, 'remotes.json');
@@ -186,7 +192,7 @@ describe('pull', () => {
             // Verify that the correct get requests were made to the remote
             expect(requestedPackageIds).toEqual([pkg.id]);
             // Check that the package was pulled
-            const registry = await Registry.getDefault();
+            const registry = await getRegistry();
             const pkgs = await registry.ls(new Set<string>([pkg.id]));
             expect(pkgs.size).toBe(1);
             expect(pkgs.has(pkg.id)).toBe(true);
@@ -203,7 +209,7 @@ describe('pull', () => {
             // Verify that the correct get requests were made to the remote
             expect(requestedPackageIds).toEqual([pkg0.id, pkg1.id]);
             // Check that the packages were pulled
-            const registry = await Registry.getDefault();
+            const registry = await getRegistry();
             const pkgs = await registry.ls(new Set<string>([pkg0.id, pkg1.id]));
             expect(pkgs.size).toBe(2);
             expect(pkgs.has(pkg0.id)).toBe(true);
@@ -222,7 +228,7 @@ describe('pull', () => {
             // Verify that the correct get requests were made to the remote
             expect(requestedPackageIds).toEqual([pkg0.id, pkg1.id, pkg2.id]);
             // Check that the packages were pulled
-            const registry = await Registry.getDefault();
+            const registry = await getRegistry();
             const pkgs = await registry.ls(new Set<string>([pkg0.id, pkg1.id, pkg2.id]));
             expect(pkgs.size).toBe(3);
             expect(pkgs.has(pkg0.id)).toBe(true);
@@ -243,7 +249,7 @@ describe('pull', () => {
             // Verify that the correct get requests were made to the remote
             expect(requestedPackageIds).toEqual([pkg0.id, pkg1.id, pkg2.id, pkg3.id]);
             // Check that the packages were pulled
-            const registry = await Registry.getDefault();
+            const registry = await getRegistry();
             const pkgs = await registry.ls(new Set<string>([pkg0.id, pkg1.id, pkg2.id, pkg3.id]));
             expect(pkgs.size).toBe(4);
             expect(pkgs.has(pkg0.id)).toBe(true);
@@ -258,7 +264,7 @@ describe('pull', () => {
             // Add the package ID to the mock pull dependencies
             mockResponsePullDependencies = [pkg0.id];
             // Add the package to the local registry
-            const localRegistry = await Registry.getDefault();
+            const localRegistry = await getRegistry();
             await localRegistry.put(pkg0);
             // Pull the package
             await pull(TEST_REMOTE_API_URL, pkg0.id);
@@ -273,7 +279,7 @@ describe('pull', () => {
             // Add the package IDs to the mock pull dependencies
             mockResponsePullDependencies = [pkg0.id, pkg1.id];
             // Add the package to the local registry
-            const localRegistry = await Registry.getDefault();
+            const localRegistry = await getRegistry();
             await localRegistry.put(pkg0);
             await localRegistry.put(pkg1);
             // Pull the package
@@ -290,7 +296,7 @@ describe('pull', () => {
             // Add the package IDs to the mock pull dependencies
             mockResponsePullDependencies = [pkg0.id, pkg1.id, pkg2.id];
             // Add the package to the local registry
-            const localRegistry = await Registry.getDefault();
+            const localRegistry = await getRegistry();
             await localRegistry.put(pkg0);
             await localRegistry.put(pkg1);
             await localRegistry.put(pkg2);
@@ -307,14 +313,14 @@ describe('pull', () => {
             // Add the package IDs to the mock pull dependencies
             mockResponsePullDependencies = [pkg0.id, pkg1.id];
             // Add the package to the local registry
-            const localRegistry = await Registry.getDefault();
+            const localRegistry = await getRegistry();
             await localRegistry.put(pkg0);
             // Pull the package
             await pull(TEST_REMOTE_API_URL, pkg1.id);
             // Verify that the correct get requests were made to the remote (we already have pkg0)
             expect(requestedPackageIds).toEqual([pkg1.id]);
             // Check that the packages were pulled
-            const registry = await Registry.getDefault();
+            const registry = await getRegistry();
             const pkgs = await registry.ls(new Set<string>([pkg1.id]));
             expect(pkgs.size).toBe(1);
             expect(pkgs.has(pkg1.id)).toBe(true);
@@ -328,14 +334,14 @@ describe('pull', () => {
             // Add the package IDs to the mock pull dependencies
             mockResponsePullDependencies = [pkg0.id, pkg1.id, pkg2.id];
             // Add the package to the local registry
-            const localRegistry = await Registry.getDefault();
+            const localRegistry = await getRegistry();
             await localRegistry.put(pkg0);
             // Pull the package
             await pull(TEST_REMOTE_API_URL, pkg2.id);
             // Verify that the correct get requests were made to the remote (we already have pkg0)
             expect(requestedPackageIds).toEqual([pkg1.id, pkg2.id]);
             // Check that the packages were pulled
-            const registry = await Registry.getDefault();
+            const registry = await getRegistry();
             const pkgs = await registry.ls(new Set<string>([pkg1.id, pkg2.id]));
             expect(pkgs.size).toBe(2);
             expect(pkgs.has(pkg1.id)).toBe(true);
@@ -350,14 +356,14 @@ describe('pull', () => {
             // Add the package IDs to the mock pull dependencies
             mockResponsePullDependencies = [pkg0.id, pkg1.id, pkg2.id];
             // Add the package to the local registry
-            const localRegistry = await Registry.getDefault();
+            const localRegistry = await getRegistry();
             await localRegistry.put(pkg1);
             // Pull the package
             await pull(TEST_REMOTE_API_URL, pkg2.id);
             // Verify that the correct get requests were made to the remote (we already have pkg1)
             expect(requestedPackageIds).toEqual([pkg0.id, pkg2.id]);
             // Check that the packages were pulled
-            const registry = await Registry.getDefault();
+            const registry = await getRegistry();
             const pkgs = await registry.ls(new Set<string>([pkg0.id, pkg2.id]));
             expect(pkgs.size).toBe(2);
             expect(pkgs.has(pkg0.id)).toBe(true);
@@ -372,14 +378,14 @@ describe('pull', () => {
             // Add the package IDs to the mock pull dependencies
             mockResponsePullDependencies = [pkg0.id, pkg1.id, pkg2.id];
             // Add the package to the local registry
-            const localRegistry = await Registry.getDefault();
+            const localRegistry = await getRegistry();
             await localRegistry.put(pkg0);
             // Pull the package
             await pull(TEST_REMOTE_API_URL, pkg2.id);
             // Verify that the correct get requests were made to the remote (we already have pkg0)
             expect(requestedPackageIds).toEqual([pkg1.id, pkg2.id]);
             // Check that the packages were pulled
-            const registry = await Registry.getDefault();
+            const registry = await getRegistry();
             const pkgs = await registry.ls(new Set<string>([pkg1.id, pkg2.id]));
             expect(pkgs.size).toBe(2);
             expect(pkgs.has(pkg1.id)).toBe(true);
@@ -394,7 +400,7 @@ describe('pull', () => {
             // Add the package IDs to the mock pull dependencies
             mockResponsePullDependencies = [pkg0.id, pkg1.id, pkg2.id];
             // Add the package to the local registry
-            const localRegistry = await Registry.getDefault();
+            const localRegistry = await getRegistry();
             await localRegistry.put(pkg0);
             await localRegistry.put(pkg1);
             // Pull the package
@@ -402,7 +408,7 @@ describe('pull', () => {
             // Verify that the correct get requests were made to the remote (we already have pkg0 and pkg1)
             expect(requestedPackageIds).toEqual([pkg2.id]);
             // Check that the packages were pulled
-            const registry = await Registry.getDefault();
+            const registry = await getRegistry();
             const pkgs = await registry.ls(new Set<string>([pkg2.id]));
             expect(pkgs.size).toBe(1);
             expect(pkgs.has(pkg2.id)).toBe(true);
@@ -417,14 +423,14 @@ describe('pull', () => {
             // Add the package IDs to the mock pull dependencies
             mockResponsePullDependencies = [pkg0.id, pkg1.id, pkg2.id, pkg3.id];
             // Add the package to the local registry
-            const localRegistry = await Registry.getDefault();
+            const localRegistry = await getRegistry();
             await localRegistry.put(pkg0);
             // Pull the package
             await pull(TEST_REMOTE_API_URL, pkg3.id);
             // Verify that the correct get requests were made to the remote (we already have pkg0)
             expect(requestedPackageIds).toEqual([pkg1.id, pkg2.id, pkg3.id]);
             // Check that the packages were pulled
-            const registry = await Registry.getDefault();
+            const registry = await getRegistry();
             const pkgs = await registry.ls(new Set<string>([pkg1.id, pkg2.id, pkg3.id]));
             expect(pkgs.size).toBe(3);
             expect(pkgs.has(pkg1.id)).toBe(true);
@@ -441,14 +447,14 @@ describe('pull', () => {
             // Add the package IDs to the mock pull dependencies
             mockResponsePullDependencies = [pkg0.id, pkg1.id, pkg2.id, pkg3.id];
             // Add the package to the local registry
-            const localRegistry = await Registry.getDefault();
+            const localRegistry = await getRegistry();
             await localRegistry.put(pkg1);
             // Pull the package
             await pull(TEST_REMOTE_API_URL, pkg3.id);
             // Verify that the correct get requests were made to the remote (we already have pkg1)
             expect(requestedPackageIds).toEqual([pkg0.id, pkg2.id, pkg3.id]);
             // Check that the packages were pulled
-            const registry = await Registry.getDefault();
+            const registry = await getRegistry();
             const pkgs = await registry.ls(new Set<string>([pkg0.id, pkg2.id, pkg3.id]));
             expect(pkgs.size).toBe(3);
             expect(pkgs.has(pkg0.id)).toBe(true);
@@ -466,7 +472,7 @@ describe('pull', () => {
             // Add the package IDs to the mock pull dependencies
             mockResponsePullDependencies = [pkg0.id, pkg2.id, pkg1.id, pkg3.id, pkg4.id];
             // Add the package to the local registry
-            const localRegistry = await Registry.getDefault();
+            const localRegistry = await getRegistry();
             await localRegistry.put(pkg0);
             await localRegistry.put(pkg2);
             // Pull the package
@@ -474,7 +480,7 @@ describe('pull', () => {
             // Verify that the correct get requests were made to the remote (we already have pkg0 and pkg2)
             expect(requestedPackageIds).toEqual([pkg1.id, pkg3.id, pkg4.id]);
             // Check that the packages were pulled
-            const registry = await Registry.getDefault();
+            const registry = await getRegistry();
             const pkgs = await registry.ls(new Set<string>([pkg1.id, pkg3.id, pkg4.id]));
             expect(pkgs.size).toBe(3);
             expect(pkgs.has(pkg1.id)).toBe(true);
@@ -492,7 +498,7 @@ describe('pull', () => {
             // Add the package IDs to the mock pull dependencies
             mockResponsePullDependencies = [pkg0.id, pkg2.id, pkg1.id, pkg3.id, pkg4.id];
             // Add the package to the local registry
-            const localRegistry = await Registry.getDefault();
+            const localRegistry = await getRegistry();
             await localRegistry.put(pkg0); // left indirect dep
             await localRegistry.put(pkg2); // left direct dep
             await localRegistry.put(pkg1); // right indirect dep
@@ -501,7 +507,7 @@ describe('pull', () => {
             // Verify that the correct get requests were made to the remote (we already have pkg0, pkg1, and pkg2)
             expect(requestedPackageIds).toEqual([pkg3.id, pkg4.id]);
             // Check that the packages were pulled
-            const registry = await Registry.getDefault();
+            const registry = await getRegistry();
             const pkgs = await registry.ls(new Set<string>([pkg3.id, pkg4.id]));
             expect(pkgs.size).toBe(2);
             expect(pkgs.has(pkg3.id)).toBe(true);

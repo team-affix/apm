@@ -3,6 +3,7 @@ import * as common from '@team-affix/apm-common';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { getRegistry } from '../models/registry';
 
 export function log(...args: unknown[]) {
     if (process.env.NODE_ENV !== 'test') {
@@ -18,7 +19,7 @@ export async function pull(apiUrl: string, rootId: string) {
     const pullDependencies = await trpcClient.getPullDependencies.query({ rootId });
 
     // Get the default registry
-    const registry = await common.Registry.getDefault();
+    const registry = await getRegistry();
 
     // Determine which pull dependencies are already present in the registry
     const presentDeps = await registry.ls(new Set<string>(pullDependencies.pkgIds));

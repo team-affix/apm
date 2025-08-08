@@ -1,9 +1,10 @@
 import { initTRPC } from '@trpc/server';
 import { z } from 'zod';
-import { Package, Registry } from '@team-affix/apm-common';
+import { Package } from '@team-affix/apm-common';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { getRegistry } from './models/registry';
 
 // Initialize tRPC
 const t = initTRPC.create();
@@ -56,7 +57,7 @@ export const appRouter = t.router({
         .output(GetPullDependenciesOutputType)
         .query(async ({ input }) => {
             // Get the default registry
-            const registry = await Registry.getDefault();
+            const registry = await getRegistry();
 
             // Get the package tree
             const result = await registry.getPackageTree(input.rootId);
@@ -77,7 +78,7 @@ export const appRouter = t.router({
         .output(GetOutputType)
         .query(async ({ input }) => {
             // Get the default registry
-            const registry = await Registry.getDefault();
+            const registry = await getRegistry();
 
             // Get the package
             const result = await registry.get(input.id);
@@ -95,7 +96,7 @@ export const appRouter = t.router({
         .output(LSOutputType)
         .query(async ({ input }) => {
             // Get the default registry
-            const registry = await Registry.getDefault();
+            const registry = await getRegistry();
 
             // ls the registry
             const result = await registry.ls(new Set(input.ids));
@@ -110,7 +111,7 @@ export const appRouter = t.router({
         .output(PutOutputType)
         .mutation(async ({ input }) => {
             // Get the default registry
-            const registry = await Registry.getDefault();
+            const registry = await getRegistry();
 
             // Get the package bytes from the base64 string
             const bytes = Buffer.from(input.b64, 'base64');

@@ -4,6 +4,7 @@ import * as common from '@team-affix/apm-common';
 import path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
+import { getRegistry } from '../models/registry';
 
 export const initCommand = new Command()
     .name('init')
@@ -26,7 +27,7 @@ export const initCommand = new Command()
             // If a package is provided, use it as the root package
             if (options.pkg) {
                 // Get the default registry
-                const registry = await common.Registry.getDefault();
+                const registry = await getRegistry();
                 // Get the package from the registry
                 const pkg = await registry.get(options.pkg);
                 // Set the init args
@@ -68,7 +69,7 @@ export const installCommand = new Command()
             const project = await common.Project.load(cwd);
 
             // Get the default registry
-            const registry = await common.Registry.getDefault();
+            const registry = await getRegistry();
 
             dbg(`Registry: ${registry.cwd}`);
 
@@ -161,7 +162,7 @@ export const packCommand = new Command()
             // Construct package with archive
             const pkg = await common.Package.create(destination, project.name, project.directDeps, archive);
             // Get the default registry
-            const registry = await common.Registry.getDefault();
+            const registry = await getRegistry();
             // Register the package
             await registry.put(pkg);
             // Write the package ID to the terminal
@@ -186,7 +187,7 @@ export const treeCommand = new Command()
             // Get the project
             const project = await common.Project.load(cwd);
             // Get the default registry
-            const registry = await common.Registry.getDefault();
+            const registry = await getRegistry();
             // Get the direct dependencies
             const deps = project.directDeps;
             // Get the Package Trees

@@ -1,4 +1,3 @@
-import { appRouter } from '../src/router';
 import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { Package, Registry, Source } from '@team-affix/apm-common';
 import { TRPCError } from '@trpc/server';
@@ -6,6 +5,13 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 import { randomUUID } from 'crypto';
+import { getRegistry } from '../src/models/registry';
+import { appRouter } from '../src/router';
+
+// Mock the getRegistry function
+jest.mock('../src/models/registry', () => ({
+    getRegistry: jest.fn(),
+}));
 
 // Create a caller to test the router directly
 const caller = appRouter.createCaller({});
@@ -26,7 +32,7 @@ describe('router', () => {
         // Create the mock default registry
         await Registry.create(mockDefaultRegistryPath);
         // Mock the default registry with one we control
-        jest.spyOn(Registry, 'getDefault').mockResolvedValue(await Registry.load(mockDefaultRegistryPath));
+        (getRegistry as jest.Mock).mockImplementation(async () => await Registry.load(mockDefaultRegistryPath));
     });
 
     afterEach(() => {
@@ -82,7 +88,7 @@ describe('router', () => {
         const pkg = await createPkg(name, deps, sourceFiles);
 
         // Put the package in the registry
-        const registry = await Registry.getDefault();
+        const registry = await getRegistry();
         await registry.put(pkg, pkg.id);
 
         // Return the package
@@ -293,7 +299,7 @@ describe('router', () => {
                 const b64 = pkgBytes.toString('base64');
 
                 // Expect the package to not be in the registry
-                const registry = await Registry.getDefault();
+                const registry = await getRegistry();
                 const lsResult = await registry.ls(new Set<string>([pkg0.id]));
                 expect(lsResult.size).toBe(0);
 
@@ -327,7 +333,7 @@ describe('router', () => {
                 const b64 = pkgBytes.toString('base64');
 
                 // Expect the package to not be in the registry
-                const registry = await Registry.getDefault();
+                const registry = await getRegistry();
                 const lsResult = await registry.ls(new Set<string>([pkg0.id]));
                 expect(lsResult.size).toBe(0);
 
@@ -361,7 +367,7 @@ describe('router', () => {
                 const pkg1B64 = pkg1Bytes.toString('base64');
 
                 // Expect the packages to not be in the registry
-                const registry = await Registry.getDefault();
+                const registry = await getRegistry();
                 const lsResult = await registry.ls(new Set<string>([pkg0.id, pkg1.id]));
                 expect(lsResult.size).toBe(0);
 
@@ -404,7 +410,7 @@ describe('router', () => {
                 const pkg1B64 = pkg1Bytes.toString('base64');
 
                 // Expect the packages to not be in the registry
-                const registry = await Registry.getDefault();
+                const registry = await getRegistry();
                 const lsResult = await registry.ls(new Set<string>([pkg0.id, pkg1.id]));
                 expect(lsResult.size).toBe(0);
 
@@ -448,7 +454,7 @@ describe('router', () => {
                 const pkg0B64 = pkg0Bytes.toString('base64');
 
                 // Expect the packages to not be in the registry
-                const registry = await Registry.getDefault();
+                const registry = await getRegistry();
                 const lsResult = await registry.ls(new Set<string>([pkg0.id]));
                 expect(lsResult.size).toBe(0);
 
@@ -500,7 +506,7 @@ describe('router', () => {
                 const pkg1B64 = pkg1Bytes.toString('base64');
 
                 // Expect the packages to not be in the registry
-                const registry = await Registry.getDefault();
+                const registry = await getRegistry();
                 const lsResult = await registry.ls(new Set<string>([pkg0.id, pkg1.id]));
                 expect(lsResult.size).toBe(0);
 
@@ -546,7 +552,7 @@ describe('router', () => {
                 const pkg1B64 = pkg1Bytes.toString('base64');
 
                 // Expect the packages to not be in the registry
-                const registry = await Registry.getDefault();
+                const registry = await getRegistry();
                 const lsResult = await registry.ls(new Set<string>([pkg0.id, pkg1.id]));
                 expect(lsResult.size).toBe(0);
 
@@ -576,7 +582,7 @@ describe('router', () => {
                 const pkg0B64 = pkg0Bytes.toString('base64');
 
                 // Expect the packages to not be in the registry
-                const registry = await Registry.getDefault();
+                const registry = await getRegistry();
                 const lsResult = await registry.ls(new Set<string>([pkg0.id]));
                 expect(lsResult.size).toBe(0);
 
@@ -602,7 +608,7 @@ describe('router', () => {
                 const pkg0B64 = pkg0Bytes.toString('base64');
 
                 // Expect the packages to not be in the registry
-                const registry = await Registry.getDefault();
+                const registry = await getRegistry();
                 const lsResult = await registry.ls(new Set<string>([pkg0.id]));
                 expect(lsResult.size).toBe(0);
 

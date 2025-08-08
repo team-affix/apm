@@ -1,9 +1,9 @@
 import { Command, Option } from 'commander';
-import * as common from '@team-affix/apm-common';
 import { createTrpcClient } from '../trpc/client';
 import { getAPIUrl, Remotes } from '../models/remotes';
 import { pull } from '../utils/pull';
 import { push } from '../utils/push';
+import { getRegistry } from '../models/registry';
 
 export const infoCommand = new Command()
     .name('info')
@@ -12,7 +12,7 @@ export const infoCommand = new Command()
     .action(async (id: string) => {
         try {
             // Get the default registry
-            const registry = await common.Registry.getDefault();
+            const registry = await getRegistry();
             // Get the package
             const pkg = await registry.get(id);
             // Print the details
@@ -37,7 +37,7 @@ export const treeCommand = new Command()
     .action(async (id: string) => {
         try {
             // Get the default registry
-            const registry = await common.Registry.getDefault();
+            const registry = await getRegistry();
             // Get the package tree
             const result = await registry.getPackageTree(id);
             // Print the dependency tree
@@ -64,7 +64,7 @@ export const lsCommand = new Command()
             // If no remote is specified, use the local registry
             if (options.remote === undefined) {
                 // list the packages on the local registry, do not use https
-                const registry = await common.Registry.getDefault();
+                const registry = await getRegistry();
                 const resultSet = await registry.ls(new Set(ids));
                 result = Array.from(resultSet);
             } else {

@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { Package, Registry, Source } from '@team-affix/apm-common';
 import { Remotes } from '../../src/models/remotes';
+import { getRegistry } from '../../src/models/registry';
 
 // Mock the function createTrpcClient
 jest.mock('../../src/trpc/client', () => {
@@ -14,6 +15,11 @@ jest.mock('../../src/trpc/client', () => {
         createTrpcClient: jest.fn(),
     };
 });
+
+// Mock the getRegistry function
+jest.mock('../../src/models/registry', () => ({
+    getRegistry: jest.fn(),
+}));
 
 import { push } from '../../src/utils/push';
 import { createTrpcClient } from '../../src/trpc/client';
@@ -53,7 +59,7 @@ describe('push', () => {
         await Registry.create(mockDefaultRegistryPath);
 
         // Mock the default registry with one we control
-        jest.spyOn(Registry, 'getDefault').mockResolvedValue(await Registry.load(mockDefaultRegistryPath));
+        (getRegistry as jest.Mock).mockImplementation(async () => await Registry.load(mockDefaultRegistryPath));
 
         // Construct a remotes file that we control
         const remotesPath = path.join(testCaseDir, 'remotes.json');
@@ -157,7 +163,7 @@ describe('push', () => {
         const pkg = await Package.create(pkgPath, name, deps, source.getArchive());
 
         // Put the package in the registry
-        const registry = await Registry.getDefault();
+        const registry = await getRegistry();
         await registry.put(pkg);
 
         // Return the package
