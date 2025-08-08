@@ -1,6 +1,6 @@
 {
     "name": "@team-affix/apm-client",
-    "version": "1.5.8",
+    "version": "1.5.9",
     "description": "Agda package manager.",
     "main": "dist/src/index.js",
     "bin": {

@@ -27,3 +27,4 @@ program.addCommand(packageCommands.infoCommand);
 program.addCommand(packageCommands.lsCommand);
 program.addCommand(packageCommands.pullCommand);
 program.addCommand(packageCommands.pushCommand);
+program.addCommand(packageCommands.treeCommand);
