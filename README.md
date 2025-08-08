@@ -113,7 +113,6 @@ Shorthands: `apm init`, `apm install`, `apm clean`, `apm check`, `apm pack`, `ap
 ## Documentation
 
 - Overview and goals: [docs/overview.md](docs/overview.md)
-- Quickstart with a minimal Agda example: [docs/quickstart.md](docs/quickstart.md)
 - CLI reference: [docs/cli.md](docs/cli.md)
 - Registry model and storage layout: [docs/registry.md](docs/registry.md)
 
