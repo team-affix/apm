@@ -116,7 +116,7 @@ Shorthands: `apm init`, `apm install`, `apm clean`, `apm check`, `apm pack`, `ap
 - Quickstart with a minimal Agda example: `docs/quickstart.md`
 - CLI reference: `docs/cli.md`
 - Registry model and storage layout: `docs/registry.md`
-- Server usage and API surface: `docs/server.md`
+
 - Concepts: vetting, package IDs, dependency trees, Agda constraints: `docs/concepts.md`
 - Philosophy and goals: `docs/philosophy.md`
 
