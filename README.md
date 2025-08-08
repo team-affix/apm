@@ -23,13 +23,7 @@ npm i -g @team-affix/apm-client
 
 ## Quickstart
 
-1. Add a remote registry:
-
-```bash
-apm remote add backupRemote http://example.org
-```
-
-3. Create a new Agda project in an empty directory:
+1. Create a new Agda project in an empty directory:
 
 ```bash
 mkdir mypkg && cd mypkg
@@ -42,32 +36,38 @@ This creates:
 - `.agda-lib` (Agda library file with include paths)
 - `deps.txt` (list of package IDs your project depends on)
 
-4. Typecheck your project:
+2. Typecheck your project:
 
 ```bash
 apm check
 ```
 
-5. Package and register it locally:
+3. Package and register it locally:
 
 ```bash
 apm pack
 # prints: Package created: MyPkg@<sha256>
 ```
 
-6. List packages in your local registry
+4. List packages in your local registry
 
 ```bash
 apm ls
 ```
 
-7. Push your package (and its entire dependency tree) to a remote registry:
+5. Add a remote registry:
+
+```bash
+apm remote add MyRemote http://example.org
+```
+
+6. Push your package (and its entire dependency tree) to a remote registry:
 
 ```bash
 apm package push MyRemote MyPkg@<sha256>
 ```
 
-8. On another machine, clone by pulling the package (and full tree) from the remote into your local registry:
+7. On another machine, clone by pulling the package (and full tree) from the remote into your local registry:
 
 ```bash
 apm package pull MyRemote MyPkg@<sha256>
