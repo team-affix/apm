@@ -18,4 +18,4 @@ Implications:
 - Communities can layer optional policies (signatures, attestations) without making identity a prerequisite
 - Threat models should consider de-anonymization vectors outside the protocol (network-level, operational security)
 
-See also: `ideas.md` for how anonymity reinforces idea-centric evaluation.
+See also: [ideas.md](ideas.md) for how anonymity reinforces idea-centric evaluation.

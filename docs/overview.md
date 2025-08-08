@@ -36,4 +36,4 @@ When building a project tree from direct dependencies, APM:
 - Builds a forest of `PackageTree` objects and topologically sorts them for installation
 - Installs dependencies into `deps/<PackageName>` folders
 
-See `docs/concepts.md` for deeper details.
+See [docs/concepts.md](concepts.md) for deeper details.

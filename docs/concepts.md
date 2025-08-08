@@ -10,7 +10,7 @@ A package is a single file with the following structure:
 - direct deps bytes (UTF-8 JSON array of package IDs)
 - remaining bytes: archive (the source payload)
 
-The package ID is computed as `name@<sha256>` where the hash is over the entire file bytes. See `philosophy/deterministic-ids.md` for why content-addressing is critical in a decentralized design.
+The package ID is computed as `name@<sha256>` where the hash is over the entire file bytes. See [philosophy/deterministic-ids.md](philosophy/deterministic-ids.md) for why content-addressing is critical in a decentralized design.
 
 ## Project structure and Agda constraints
 

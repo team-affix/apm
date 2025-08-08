@@ -27,4 +27,4 @@ Mounted under `/api/trpc`:
 - `put({ id, b64 }) -> { id }`
   - Registers the package represented by base64 bytes, vetting it before storing under `packages/<id>`.
 
-See `docs/cli.md` for client commands that call these procedures.
+See [docs/cli.md](cli.md) for client commands that call these procedures.
