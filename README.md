@@ -55,19 +55,19 @@ apm pack
 # prints: Package created: MyPkg@<sha256>
 ```
 
-5. List packages in your local registry
+6. List packages in your local registry
 
 ```bash
 apm ls
 ```
 
-6. Push your package (and its entire dependency tree) to a remote registry:
+7. Push your package (and its entire dependency tree) to a remote registry:
 
 ```bash
 apm package push MyRemote MyPkg@<sha256>
 ```
 
-7. On another machine, clone by pulling the package (and full tree) from the remote into your local registry:
+8. On another machine, clone by pulling the package (and full tree) from the remote into your local registry:
 
 ```bash
 apm package pull MyRemote MyPkg@<sha256>
