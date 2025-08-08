@@ -16,25 +16,17 @@ APM is a package manager and minimal registry protocol designed specifically for
 ## Install
 
 ```bash
-npm i -g @team-affix/apm-client @team-affix/apm-server
+npm i -g @team-affix/apm-client
 ```
 
 - CLI binary: `apm`
-- Server binary: `apm-server`
 
 ## Quickstart
 
-1. Start a local registry server (default port 3000):
+1. Add a remote registry:
 
 ```bash
-apm-server
-```
-
-2. Register the server as a remote:
-
-```bash
-apm remote add local http://localhost:3000
-apm remote health local
+apm remote add backupRemote http://example.org
 ```
 
 3. Create a new Agda project in an empty directory:
@@ -63,16 +55,22 @@ apm pack
 # prints: Package created: MyPkg@<sha256>
 ```
 
-6. Push your package (and its full dependency tree) to a remote:
+5. List packages in your local registry
 
 ```bash
-apm package push local MyPkg@<sha256>
+apm ls
 ```
 
-7. From another machine or later, pull a package (and its full dependency tree) from a remote into your local registry:
+6. Push your package (and its entire dependency tree) to a remote registry:
 
 ```bash
-apm package pull local MyPkg@<sha256>
+apm package push MyRemote MyPkg@<sha256>
+```
+
+7. On another machine, clone by pulling the package (and full tree) from the remote into your local registry:
+
+```bash
+apm package pull MyRemote MyPkg@<sha256>
 ```
 
 ## CLI at a glance
@@ -100,22 +98,15 @@ Shorthands: `apm init`, `apm install`, `apm clean`, `apm check`, `apm pack`, `ap
 
 ## Registries and resilience
 
-- APM uses decentralized registries. Any server can host a registry; any client can pull from and push to any registry.
+- APM uses decentralized registries. Every server provides http access to a registry; any client can pull from and push to any registry.
 - When pushing or pulling, APM transfers the entire package tree to prevent cross-dependence between registries and keep each registry self-sufficient even if others disappear.
-- Local registry paths:
+- Local registry path:
   - Client default: `~/.apm/client/registry`
-  - Server default: `~/.apm/server/registry`
-
-## Server
-
-- Run: `apm-server` (uses `PORT` env var if set; defaults to 3000)
-- Health: `GET /health`
-- API (tRPC mounted at `/api/trpc`): methods include `get`, `put`, `ls`, and `getPullDependencies`.
 
 ## Concepts and design goals
 
 - Agda-first: package/project structure maps to Agda’s global search path; projects have a single root module namespace.
-- Deterministic IDs: each package file’s bytes determine its hash; IDs look like `name@<sha256>`.
+- Deterministic IDs: each package file’s bytes determine its id; IDs look like `name@<sha256>`, where `name` is the agda source folder name, NOT an arbitrary name given to the package after compilation. [more on this](docs/philosophy/deterministic-ids.md)
 - Vetting: on registration/publish, APM verifies only `.agda` and `.md` files in the root source, installs declared deps, and typechecks using Agda.
 - Decentralized model, anonymity, and takedown resilience are core design goals.
 
