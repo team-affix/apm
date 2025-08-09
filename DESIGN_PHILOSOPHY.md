@@ -29,7 +29,7 @@ APM's architecture directly implements its philosophical principles through spec
 | **Anonymous publishing** | No identity fields in package format or protocol | Cannot suppress ideas based on author identity |
 | **Resilience to suppression** | Decentralized registries with full-tree replication | No single point of failure; mirrors can preserve knowledge |
 | **Explicit assumptions** | Agda requires explicit axiom declarations in proofs | Logical conclusions must state their premises clearly |
-| **Minimal coordination** | Simple HTTP+JSON protocol | Easy to implement and audit; reduces gatekeeping |
+| **Minimal coordination** | Decentralized registries with simple API | Anyone can run a registry without permission or coordination |
 | **Validity over truth** | Typechecking without axiom filtering | Accepts any logically consistent content regardless of conclusions |
 
 ---
