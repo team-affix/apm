@@ -91,7 +91,7 @@ apm package pull MyRemote MyPkg@<sha256>
 
 ## Documentation
 
-- Overview and goals: [docs/overview.md](docs/overview.md)
+- Overview and goals: [docs/index.md#apm-overview](docs/index.md#apm-overview)
 - Registry model and storage layout: [docs/registry.md](docs/registry.md)
 - Concepts: vetting, package IDs, dependency trees, Agda constraints: [docs/concepts.md](docs/concepts.md)
 - Philosophy and goals: [docs/philosophy/index.md](docs/philosophy/index.md)
