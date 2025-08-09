@@ -19,7 +19,17 @@ The package ID is computed as `name@<sha256>` where the hash is over the entire 
 - Direct deps listed in `deps.txt` by package ID, one per line
 - Root source may contain `.agda` and `.md` files; other extensions in the root source are rejected during vetting
 
-This enforces a clean Agda module layout and prevents multiple packages from colliding on the same top-level module name within a single project.
+This enforces a clean Agda module layout and prevents multiple packages from colliding on the same top-level module name within a single project. See [philosophy/why-agda.md](philosophy/why-agda.md) and [registry.md](registry.md) for background on layout and library includes.
+
+## Sandboxing
+
+Projects are sandboxed by the `.agda-lib` file, which includes only the project root and `deps/`. Because no external Agda libraries are referenced:
+
+- The project can import Agda builtins
+- The project can import modules from its installed dependency sources (`deps/<PackageName>`)
+- The project can import modules from its own root source (`<ProjectName>/`)
+
+This ensures reproducible, self-contained builds aligned with APM’s registry model.
 
 ## Vetting flow
 
@@ -29,7 +39,7 @@ This enforces a clean Agda module layout and prevents multiple packages from col
 - Install dependencies into `deps/<PackageName>`
 - Run `agda` on root `.agda` files
 
-Only if all steps succeed will the package be accepted into a registry.
+Only if all steps succeed will the package be accepted into a registry. See [registry.md](registry.md) for details on vetting and storage.
 
 ## Dependency resolution and overrides
 
@@ -38,8 +48,10 @@ Only if all steps succeed will the package be accepted into a registry.
 - Name-based overrides prevent unresolved peer conflicts: if multiple packages reference a dependency with the same top-level name, direct deps take precedence and peers are disallowed unless overridden transitively
 - Installation lays out deps under `deps/<PackageName>` preserving topological order
 
+See [dependencies.md](dependencies.md) for a detailed guide to dependency management and peer resolution.
+
 ## Decentralization, anonymity, and resilience
 
-- There is no central registry; anyone can run a server and mirror packages
-- Push and pull transfer full dependency trees so a registry can stand alone if others disappear
-- The protocol does not bind identities to packages; registry operators may layer policies independently if desired
+- There is no central registry; anyone can run a server and mirror packages. See [philosophy/resilience.md](philosophy/resilience.md).
+- Push and pull transfer full dependency trees so a registry can stand alone if others disappear. See [philosophy/design.md](philosophy/design.md).
+- The protocol does not bind identities to packages; registry operators may layer policies independently if desired. See [philosophy/anonymity.md](philosophy/anonymity.md).

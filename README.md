@@ -21,6 +21,8 @@ npm i -g @team-affix/apm-client
 
 - CLI binary: `apm`
 
+**Full CLI reference: [docs/cli.md](docs/cli.md)**
+
 ## Quickstart
 
 1. Create a new Agda project in an empty directory:
@@ -73,29 +75,6 @@ apm package push MyRemote MyPkg@<sha256>
 apm package pull MyRemote MyPkg@<sha256>
 ```
 
-## CLI at a glance
-
-- Project:
-  - `apm project init [project-name] [--pkg <id>]`
-  - `apm project install`
-  - `apm project clean`
-  - `apm project check`
-  - `apm project pack`
-  - `apm project tree`
-- Package:
-  - `apm package info <id>`
-  - `apm package tree <id>`
-  - `apm package ls [ids...] [-r, --remote <name>]`
-  - `apm package pull <remote> <id>`
-  - `apm package push <remote> <id>`
-- Remote:
-  - `apm remote ls`
-  - `apm remote add <name> <url> [--skip-health-check]`
-  - `apm remote rm <name>`
-  - `apm remote health <name>`
-
-Shorthands: `apm init`, `apm install`, `apm clean`, `apm check`, `apm pack`, `apm info`, `apm ls`, `apm pull`, `apm push`.
-
 ## Registries and resilience
 
 - APM uses decentralized registries. Every server provides http access to a registry; any client can pull from and push to any registry.
@@ -113,9 +92,7 @@ Shorthands: `apm init`, `apm install`, `apm clean`, `apm check`, `apm pack`, `ap
 ## Documentation
 
 - Overview and goals: [docs/overview.md](docs/overview.md)
-- CLI reference: [docs/cli.md](docs/cli.md)
 - Registry model and storage layout: [docs/registry.md](docs/registry.md)
-
 - Concepts: vetting, package IDs, dependency trees, Agda constraints: [docs/concepts.md](docs/concepts.md)
 - Philosophy and goals: [docs/philosophy/index.md](docs/philosophy/index.md)
 

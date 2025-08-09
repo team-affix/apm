@@ -8,7 +8,7 @@ Binary: `apm`
 - `apm package` — query/pull/push packages
 - `apm remote` — manage remotes
 
-Shorthands also exist for common subcommands: `apm init`, `apm install`, `apm clean`, `apm check`, `apm pack`, `apm info`, `apm ls`, `apm pull`, `apm push`.
+Shorthands also exist for common subcommands: `apm init`, `apm install`, `apm clean`, `apm check`, `apm pack`, `apm tree`, `apm info`, `apm ls`, `apm pull`, `apm push`.
 
 ## Project
 

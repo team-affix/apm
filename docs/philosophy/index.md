@@ -9,4 +9,5 @@ APM is a precursor to a logic platform for public discourse where selection pres
 - Design translations: [design.md](design.md)
 - Resilience and decentralization: [resilience.md](resilience.md)
 - Deterministic IDs: [deterministic-ids.md](deterministic-ids.md)
+- Why Agda?: [why-agda.md](why-agda.md)
 - Future directions: [future.md](future.md)
