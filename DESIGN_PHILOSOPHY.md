@@ -28,7 +28,7 @@ APM's architecture directly implements its philosophical principles through spec
 | **Truth-seeking via formal methods** | Local vetting with Agda typechecking | Mechanically verifies logical validity before accepting packages |
 | **Anonymous publishing** | No identity fields in package format or protocol | Cannot suppress ideas based on author identity |
 | **Resilience to suppression** | Decentralized registries with full-tree replication | No single point of failure; mirrors can preserve knowledge |
-| **Explicit assumptions** | Dependency trees with content-addressed IDs | Makes assumption chains visible and verifiable |
+| **Explicit assumptions** | Agda requires explicit axiom declarations in proofs | Logical conclusions must state their premises clearly |
 | **Minimal coordination** | Simple HTTP+JSON protocol | Easy to implement and audit; reduces gatekeeping |
 | **Validity over truth** | Typechecking without axiom filtering | Accepts any logically consistent content regardless of conclusions |
 
