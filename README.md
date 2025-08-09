@@ -42,7 +42,7 @@ apm init MyLogic
 
 # Add some Agda code, then package and publish
 echo 'module MyLogic.Core where' > MyLogic/Core.agda
-echo 'data Truth : Set where' >> MyLogic/Core.agda  
+echo 'data Truth : Set where' >> MyLogic/Core.agda
 echo '  ⊤ : Truth' >> MyLogic/Core.agda
 
 # Create and register package locally
@@ -58,7 +58,7 @@ apm push myregistry MyLogic@a1b2c3d4e5f6...
 
 ## Why APM Exists: The Bigger Picture
 
-APM isn't just another package manager. It's a step toward **fixing how we evaluate ideas in public discourse**.
+APM isn't just another package manager. It's a step toward **creating a sanctuary for logical discourse**—a place where some people can engage in conversations aimed at revealing truths about the world, free from the nuance-crushing dysfunction of typical online spaces. This isn't meant for everyone; it's designed to create a space where only those capable of rigorous logical reasoning can meaningfully participate.
 
 ### The Problem with Current Discourse
 
@@ -74,7 +74,7 @@ Today's platforms for sharing ideas suffer from fundamental problems:
 Imagine a world where:
 
 - **Claims must be formalized** to be published, forcing precision and clarity
-- **Logical validity is mechanically verified** by typecheckers, not human reviewers  
+- **Logical validity is mechanically verified** by typecheckers, not human reviewers
 - **Authors can remain anonymous**, removing identity-based bias from evaluation
 - **Assumptions are explicit** and traceable through dependency trees
 - **Resilient networks** preserve important ideas even under political pressure
@@ -112,18 +112,21 @@ npm install -g @team-affix/apm-client
 ```
 
 This gives you:
+
 - `apm` - The CLI tool for managing packages and projects
 - `apm-server` - Registry server (for hosting your own registry)
 
 ### Your First Project
 
 1. **Create a new project:**
+
    ```bash
    mkdir mathematical-foundations && cd mathematical-foundations
    apm init MathFoundations
    ```
 
 2. **This creates:**
+
    ```
    MathFoundations/        # Your Agda source directory
    .agda-lib              # Agda library file
@@ -131,6 +134,7 @@ This gives you:
    ```
 
 3. **Add some logic:**
+
    ```bash
    cat > MathFoundations/BasicLogic.agda << 'EOF'
    module MathFoundations.BasicLogic where
@@ -148,11 +152,13 @@ This gives you:
    ```
 
 4. **Verify it typechecks:**
+
    ```bash
    apm check
    ```
 
 5. **Package and register locally:**
+
    ```bash
    apm pack
    # → Package created: MathFoundations@4f8a9c2e1b7d3a5f...
@@ -166,16 +172,19 @@ This gives you:
 ### Working with Remote Registries
 
 1. **Add a remote registry:**
+
    ```bash
    apm remote add backup https://backup-registry.example.org
    ```
 
 2. **Push your package (with all dependencies):**
+
    ```bash
    apm push backup MathFoundations@4f8a9c2e1b7d3a5f...
    ```
 
 3. **On another machine, pull the package:**
+
    ```bash
    apm pull backup MathFoundations@4f8a9c2e1b7d3a5f...
    ```
@@ -216,7 +225,7 @@ Before any package is registered (locally or remotely), APM:
 
 1. ✅ Verifies the package ID matches the file contents
 2. ✅ Checks only `.agda` and `.md` files exist in the source
-3. ✅ Resolves and installs all dependencies  
+3. ✅ Resolves and installs all dependencies
 4. ✅ Runs `agda` to typecheck every `.agda` file
 5. ✅ Only accepts the package if everything succeeds
 
@@ -255,13 +264,15 @@ APM embodies several key principles:
 
 ### Long-Term Vision
 
-APM is a prototype for a **logic platform for public discourse** where:
+APM is a prototype for a **sanctuary of logical discourse** where:
 
-- Political arguments include formal models and proofs
-- Scientific claims come with mechanically verified derivations  
-- Philosophical positions are grounded in explicit axiom systems
-- Public debate centers on logical validity rather than rhetoric
-- Important ideas survive attempts at suppression
+- Truth-seeking conversations happen through formal reasoning
+- Claims must be verifiable through typechecking rather than social consensus
+- Philosophical positions are grounded in explicit, inspectable axiom systems
+- Discourse quality is maintained by the requirement for logical rigor
+- Important ideas survive attempts at suppression through decentralized preservation
+
+This creates a space not for mass participation, but for the subset of people capable of and committed to this level of logical discipline.
 
 ---
 
@@ -340,15 +351,18 @@ apm ls | xargs -I {} apm push backup {}
 ## Documentation
 
 ### User Guides
-- **[USER_GUIDE.md](USER_GUIDE.md)** - Complete CLI reference, dependency management, and server setup
+
+- **[docs/user-guide.md](docs/user-guide.md)** - Complete CLI reference, dependency management, and server setup
 - **[docs/git.md](docs/git.md)** - Using Git with APM projects
 
-### Technical Documentation  
-- **[TECHNICAL_GUIDE.md](TECHNICAL_GUIDE.md)** - Package format, registry internals, and vetting process
+### Technical Documentation
+
+- **[docs/technical-guide.md](docs/technical-guide.md)** - Package format, registry internals, and vetting process
 
 ### Philosophy and Design
-- **[PHILOSOPHY.md](PHILOSOPHY.md)** - Core principles and vision for logic-based discourse
-- **[DESIGN_PHILOSOPHY.md](DESIGN_PHILOSOPHY.md)** - How philosophical goals translate to technical decisions
+
+- **[docs/philosophy.md](docs/philosophy.md)** - Core principles and vision for logic-based discourse
+- **[docs/design-philosophy.md](docs/design-philosophy.md)** - How philosophical goals translate to technical decisions
 - **[docs/deterministic-ids.md](docs/deterministic-ids.md)** - Deep dive on content-addressed package IDs
 - **[docs/why-agda.md](docs/why-agda.md)** - Why Agda is the right foundation
 - **[docs/future.md](docs/future.md)** - Roadmap and future directions
@@ -360,16 +374,19 @@ apm ls | xargs -I {} apm push backup {}
 APM is an open source project aimed at creating infrastructure for logic-based discourse. We welcome contributions in several areas:
 
 ### Code Contributions
+
 - **CLI improvements**: Better user experience, additional commands
 - **Registry server**: Performance, security, additional endpoints
 - **Tooling integration**: Editor plugins, CI/CD support
 
 ### Ecosystem Development
+
 - **Package creation**: Mathematical libraries, logical frameworks
 - **Registry hosting**: Running public registries for specific domains
 - **Documentation**: Tutorials, examples, best practices
 
 ### Research and Design
+
 - **Formal verification**: New approaches to automated proof checking
 - **Discourse protocols**: Better mechanisms for collaborative reasoning
 - **Decentralized systems**: Improvements to resilience and performance
@@ -384,6 +401,7 @@ APM is an open source project aimed at creating infrastructure for logic-based d
 ### Philosophy-Driven Development
 
 When contributing, consider how your changes support APM's core goals:
+
 - Does this make logical discourse more accessible?
 - Does this preserve anonymity and decentralization?
 - Does this encourage rigorous formal reasoning?
@@ -402,7 +420,7 @@ MIT License. See [`LICENSE`](LICENSE) for details.
 APM represents an experiment in using formal methods to improve public discourse. Whether you're interested in:
 
 - **Mathematics**: Building formal foundations and proof libraries
-- **Philosophy**: Exploring logic-based argumentation 
+- **Philosophy**: Exploring logic-based argumentation
 - **Politics**: Creating transparent, verifiable policy analysis
 - **Science**: Formal modeling and verification of scientific claims
 - **Technology**: Decentralized systems and content addressing
