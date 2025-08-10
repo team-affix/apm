@@ -340,20 +340,23 @@ export class Project {
         // Indicate that we are checking the project
         dbg(`Checking project at ${this.cwd}`);
 
-        // Validate the agda files
-        for (const filePath of this.rootSource.agdaFiles) {
-            // Get the full file path
-            const fullFilePath = path.join(this.rootSource.cwd, filePath);
+        // get all sources in project
+        const allSources = [this.rootSource, ...this.dependencySources];
 
+        // get a cumulative list of all agda files in project
+        const agdaFiles = allSources.flatMap((s) => s.agdaFiles.map((f) => path.join(s.cwd, f)));
+
+        // Validate the agda files
+        for (const filePath of agdaFiles) {
             // Get the debugger
             const dbg = debug('apm:common:models:project:check:agdaFile');
 
             // Indicate that we are checking the agda file
-            dbg(`Checking agda file at ${fullFilePath}`);
+            dbg(`Checking agda file at ${filePath}`);
 
             try {
                 // Execute agda on the file
-                await execAsync(`agda ${fullFilePath}`, { cwd: this.cwd });
+                await execAsync(`agda ${filePath}`, { cwd: this.cwd });
             } catch (error: unknown) {
                 // Handled error
                 if (error && typeof error === 'object' && 'stdout' in error) {

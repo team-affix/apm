@@ -1663,6 +1663,7 @@ describe('models/Project', () => {
     });
 
     describe('Project.check()', () => {
+        const localPackagesPath = path.join(testCaseDir, 'local-packages');
         const projectName = 'APMTmpProject';
         const projectDir = path.join(os.tmpdir(), projectName);
         let project: Project;
@@ -1688,8 +1689,12 @@ describe('models/Project', () => {
         beforeEach(async () => {
             // Remove the temporary directory if it exists
             if (fs.existsSync(projectDir)) fs.rmSync(projectDir, { recursive: true, force: true });
+            // If the local packages dir exists, remove it
+            if (fs.existsSync(localPackagesPath)) fs.rmSync(localPackagesPath, { recursive: true, force: true });
             // Create the temporary directory
             fs.mkdirSync(projectDir, { recursive: true });
+            // Create the local packages directory
+            fs.mkdirSync(localPackagesPath, { recursive: true });
             // Create the project
             project = await Project.init(projectDir, { projectName });
         });
@@ -1762,6 +1767,72 @@ describe('models/Project', () => {
                         ],
                     ]),
                 ));
+
+            it('overriding grandchild package with one that the child CAN compile with', async () => {
+                // create the grandchild package
+                const pkgGrandchild = await createPackage(
+                    path.join(localPackagesPath, 'pkgGrandchild.apm'),
+                    'Grandchild',
+                    depend([]),
+                    new Map([
+                        [
+                            'Main.agda',
+                            `
+                                    module Grandchild.Main where
+                                    open import Agda.Builtin.Nat
+                                    myNat : Nat
+                                    myNat = 1
+                                    `,
+                        ],
+                    ]),
+                );
+                // create the override grandchild package (doesn't define myNat)
+                const pkgGrandchildOverride = await createPackage(
+                    path.join(localPackagesPath, 'pkgOverrideGrandchild.apm'),
+                    'Grandchild',
+                    depend([]),
+                    new Map([
+                        [
+                            'Main.agda',
+                            `
+                                    module Grandchild.Main where
+                                    open import Agda.Builtin.Nat
+                                    myNat : Nat
+                                    myNat = 2
+                                `,
+                        ],
+                    ]),
+                );
+                // create the child package
+                const pkgChild = await createPackage(
+                    path.join(localPackagesPath, 'pkgChild.apm'),
+                    'Child',
+                    depend([pkgGrandchild]),
+                    new Map([
+                        [
+                            'Main.agda',
+                            `
+                                    module Child.Main where
+                                    open import Agda.Builtin.Nat
+                                    open import Grandchild.Main
+                                    childNat : Nat
+                                    childNat = myNat
+                                    `,
+                        ],
+                    ]),
+                );
+                // create the project
+                project.directDeps.add(pkgGrandchildOverride.id);
+                project.directDeps.add(pkgChild.id);
+                // Write the direct deps file
+                ProjectTest.writeDirectDepsFile(projectDir, project.directDeps);
+                // install the packages
+                await project.install([pkgGrandchildOverride, pkgChild]);
+                // reload the project
+                project = await Project.load(projectDir);
+                // expect the project to check
+                await project.check();
+            });
         });
 
         describe('failure cases', () => {
@@ -1856,6 +1927,69 @@ describe('models/Project', () => {
                         ],
                     ]),
                 ));
+
+            it('overriding grandchild package with one that the child cannot compile with', async () => {
+                // create the grandchild package
+                const pkgGrandchild = await createPackage(
+                    path.join(localPackagesPath, 'pkgGrandchild.apm'),
+                    'Grandchild',
+                    depend([]),
+                    new Map([
+                        [
+                            'Main.agda',
+                            `
+                                module Grandchild.Main where
+                                open import Agda.Builtin.Nat
+                                myNat : Nat
+                                myNat = 1
+                                `,
+                        ],
+                    ]),
+                );
+                // create the override grandchild package (doesn't define myNat)
+                const pkgGrandchildOverride = await createPackage(
+                    path.join(localPackagesPath, 'pkgOverrideGrandchild.apm'),
+                    'Grandchild',
+                    depend([]),
+                    new Map([
+                        [
+                            'Main.agda',
+                            `
+                                module Grandchild.Main where
+                                `,
+                        ],
+                    ]),
+                );
+                // create the child package
+                const pkgChild = await createPackage(
+                    path.join(localPackagesPath, 'pkgChild.apm'),
+                    'Child',
+                    depend([pkgGrandchild]),
+                    new Map([
+                        [
+                            'Main.agda',
+                            `
+                                module Child.Main where
+                                open import Agda.Builtin.Nat
+                                open import Grandchild.Main
+                                childNat : Nat
+                                childNat = myNat
+                                `,
+                        ],
+                    ]),
+                );
+                // create the project
+                project.directDeps.add(pkgGrandchildOverride.id);
+                project.directDeps.add(pkgChild.id);
+                // Write the direct deps file
+                ProjectTest.writeDirectDepsFile(projectDir, project.directDeps);
+                // install the packages
+                await project.install([pkgGrandchildOverride, pkgChild]);
+                // reload the project
+                project = await Project.load(projectDir);
+                // expect the project to check
+                await expect(project.check()).rejects.toThrow(CheckProjectError);
+            });
         });
     });
 
