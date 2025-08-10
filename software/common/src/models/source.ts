@@ -6,13 +6,6 @@ import fs from 'fs';
 import debug from 'debug';
 import SourceLoadError from '../errors/source-load';
 import SourceCreateError from '../errors/source-create';
-import path from 'path';
-import { promisify } from 'util';
-import { exec, ExecException } from 'child_process';
-import CheckSourceError from '../errors/check-source';
-
-// Promisify the exec function
-const execAsync = promisify(exec);
 
 // A source type, which is just a directory of source files
 export class Source {
@@ -70,39 +63,6 @@ export class Source {
 
         // Pack the files into a tar
         return tarFs.pack(this.cwd, { entries: files });
-    }
-
-    // Check if the Agda source files are valid
-    async check(): Promise<void> {
-        // Get the debugger
-        const dbg = debug('apm:common:models:source:check');
-
-        // Indicate that we are checking the source
-        dbg(`Checking source at ${this.cwd}`);
-
-        // Validate the agda files
-        for (const filePath of this.agdaFiles) {
-            // Get the full file path
-            const fullFilePath = path.join(this.cwd, filePath);
-
-            // Get the debugger
-            const dbg = debug('apm:common:models:source:check:agdaFile');
-
-            // Indicate that we are checking the agda file
-            dbg(`Checking agda file at ${fullFilePath}`);
-
-            try {
-                // Execute agda on the file
-                await execAsync(`agda ${fullFilePath}`, { cwd: this.cwd });
-            } catch (error: unknown) {
-                // Handled error
-                if (error && typeof error === 'object' && 'stdout' in error) {
-                    throw new CheckSourceError(this.cwd, (error as ExecException).stdout as string);
-                }
-                // Unhandled errors
-                throw error;
-            }
-        }
     }
 }
 

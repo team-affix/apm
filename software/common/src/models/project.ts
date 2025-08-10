@@ -9,8 +9,14 @@ import FailedToParseDepsError from '../errors/failed-to-parse-deps';
 import { Source } from './source';
 import { Package } from './package';
 import { Readable } from 'stream';
-// import { ProjectRemoveError } from '../errors/project-remove';
-// import { ProjectAddError } from '../errors/project-add';
+import { promisify } from 'util';
+import { exec, ExecException } from 'child_process';
+import CheckProjectError from '../errors/check-project';
+import { ProjectRemoveError } from '../errors/project-remove';
+import { ProjectAddError } from '../errors/project-add';
+
+// Promisify the exec function
+const execAsync = promisify(exec);
 
 // The name of the deps file
 const DEPS_FILE_NAME = 'deps.txt';
@@ -334,48 +340,66 @@ export class Project {
         // Indicate that we are checking the project
         dbg(`Checking project at ${this.cwd}`);
 
-        // Check the root source
-        await this.rootSource.check();
+        // Validate the agda files
+        for (const filePath of this.rootSource.agdaFiles) {
+            // Get the full file path
+            const fullFilePath = path.join(this.rootSource.cwd, filePath);
 
-        // Check the dependency sources
-        await Promise.all(this.dependencySources.map((s) => s.check()));
+            // Get the debugger
+            const dbg = debug('apm:common:models:project:check:agdaFile');
+
+            // Indicate that we are checking the agda file
+            dbg(`Checking agda file at ${fullFilePath}`);
+
+            try {
+                // Execute agda on the file
+                await execAsync(`agda ${fullFilePath}`, { cwd: this.cwd });
+            } catch (error: unknown) {
+                // Handled error
+                if (error && typeof error === 'object' && 'stdout' in error) {
+                    throw new CheckProjectError(this.cwd, (error as ExecException).stdout as string);
+                }
+                // Unhandled errors
+                throw error;
+            }
+        }
     }
 
-    // // Add a dependency to the project
-    // async add(pkg: Package): Promise<void> {
-    //     // Get the debugger
-    //     const dbg = debug('apm:common:models:project:add');
+    // Add a dependency to the project
+    async add(pkg: Package): Promise<void> {
+        // Get the debugger
+        const dbg = debug('apm:common:models:project:add');
 
-    //     // Indicate that we are adding a dependency to the project
-    //     dbg(`Adding dependency ${pkg.id} to project at ${this.cwd}`);
+        // Indicate that we are adding a dependency to the project
+        dbg(`Adding dependency ${pkg.id} to project at ${this.cwd}`);
 
-    //     // If the dependency is already in the project, throw an error
-    //     if (this.directDeps.has(pkg.id)) throw new ProjectAddError(this.cwd, pkg.id, 'Dependency already exists');
+        // If the dependency is already in the project, throw an error
+        if (this.directDeps.has(pkg.id)) throw new ProjectAddError(this.cwd, pkg.id, 'Dependency already exists');
 
-    //     // Add the dependency to the project
-    //     this.directDeps.add(pkg.id);
+        // Add the dependency to the project
+        this.directDeps.add(pkg.id);
 
-    //     // Write the direct dependencies to the deps file
-    //     await writeDirectDepsFile(this.cwd, this.directDeps);
-    // }
+        // Write the direct dependencies to the deps file
+        await writeDirectDepsFile(this.cwd, this.directDeps);
+    }
 
-    // // Remove a dependency from the project
-    // async remove(pkg: Package): Promise<void> {
-    //     // Get the debugger
-    //     const dbg = debug('apm:common:models:project:remove');
+    // Remove a dependency from the project
+    async remove(pkg: Package): Promise<void> {
+        // Get the debugger
+        const dbg = debug('apm:common:models:project:remove');
 
-    //     // Indicate that we are removing a dependency from the project
-    //     dbg(`Removing dependency ${pkg.id} from project at ${this.cwd}`);
+        // Indicate that we are removing a dependency from the project
+        dbg(`Removing dependency ${pkg.id} from project at ${this.cwd}`);
 
-    //     // If the dependency is not in the project, throw an error
-    //     if (!this.directDeps.has(pkg.id)) throw new ProjectRemoveError(this.cwd, pkg.id, 'Dependency not found');
+        // If the dependency is not in the project, throw an error
+        if (!this.directDeps.has(pkg.id)) throw new ProjectRemoveError(this.cwd, pkg.id, 'Dependency not found');
 
-    //     // Remove the dependency from the project
-    //     this.directDeps.delete(pkg.id);
+        // Remove the dependency from the project
+        this.directDeps.delete(pkg.id);
 
-    //     // Write the direct dependencies to the deps file
-    //     await writeDirectDepsFile(this.cwd, this.directDeps);
-    // }
+        // Write the direct dependencies to the deps file
+        await writeDirectDepsFile(this.cwd, this.directDeps);
+    }
 }
 
 export const __test__ = {

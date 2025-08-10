@@ -13,7 +13,7 @@ import PackageLoadError from '../../src/errors/package-load';
 import GetProjectTreeError from '../../src/errors/get-project-tree';
 import { PackageTree } from '../../src/utils/package-tree';
 import VetPackageError from '../../src/errors/vet-package';
-import CheckSourceError from '../../src/errors/check-source';
+import CheckProjectError from '../../src/errors/check-project';
 import PutPackageError from '../../src/errors/put-package';
 
 describe('models/registry', () => {
@@ -1640,7 +1640,7 @@ describe('models/registry', () => {
                 // load the registry
                 const registry = await Registry.load(registryPath);
                 // vet the package
-                await expect(registry.vet(pkg0)).rejects.toThrow(CheckSourceError);
+                await expect(registry.vet(pkg0)).rejects.toThrow(CheckProjectError);
             });
 
             it('one valid agda file and one invalid agda file', async () => {
@@ -1656,7 +1656,7 @@ describe('models/registry', () => {
                 // load the registry
                 const registry = await Registry.load(registryPath);
                 // vet the package
-                await expect(registry.vet(pkg0)).rejects.toThrow(CheckSourceError);
+                await expect(registry.vet(pkg0)).rejects.toThrow(CheckProjectError);
             });
 
             it('unregistered dependency', async () => {
@@ -2006,7 +2006,7 @@ describe('models/registry', () => {
                 // load the registry
                 const registry = await Registry.load(registryPath);
                 // vet the package
-                await expect(registry.put(pkg0)).rejects.toThrow(CheckSourceError);
+                await expect(registry.put(pkg0)).rejects.toThrow(CheckProjectError);
             });
 
             it('one valid agda file and one invalid agda file', async () => {
@@ -2022,7 +2022,7 @@ describe('models/registry', () => {
                 // load the registry
                 const registry = await Registry.load(registryPath);
                 // vet the package
-                await expect(registry.put(pkg0)).rejects.toThrow(CheckSourceError);
+                await expect(registry.put(pkg0)).rejects.toThrow(CheckProjectError);
             });
 
             it('package already registered', async () => {
