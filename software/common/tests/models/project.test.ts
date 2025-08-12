@@ -1292,10 +1292,7 @@ describe('models/Project', () => {
                 // get the install dependencies
                 const installDeps = projectTree.flatMap((tree) => tree.getTopologicalSort());
                 // install the project
-                const returnedSources = await project.install(installDeps);
-                // expect the returned sources to be the same as the install dependencies
-                const returnedActualSourceNames = returnedSources.map((source) => path.basename(source.cwd));
-                expect(returnedActualSourceNames.sort()).toEqual(expectedSourceNames.sort());
+                await project.install(installDeps);
                 // reload the project
                 project = await Project.load(projectPath);
                 // expect the project to have sources corresponding to the expected source names

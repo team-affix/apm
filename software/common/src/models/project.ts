@@ -286,7 +286,7 @@ export class Project {
     }
 
     // Install the project
-    async install(transitiveDeps: Package[]): Promise<Source[]> {
+    async install(transitiveDeps: Package[]): Promise<void> {
         // Get the debugger
         const dbg = debug('apm:common:models:project:install');
 
@@ -296,9 +296,6 @@ export class Project {
         // Create deps folder if it does not already exist
         const depsFolderPath = path.join(this.cwd, DEPS_FOLDER_NAME);
         if (!fs.existsSync(depsFolderPath)) fs.mkdirSync(depsFolderPath, { recursive: true });
-
-        // Initialize the result empty
-        const result: Source[] = [];
 
         // Install the direct dependencies
         for (const dep of transitiveDeps) {
@@ -311,14 +308,8 @@ export class Project {
             if (fs.existsSync(depPath)) continue;
 
             // Install the dependency
-            const source = await Source.create(depPath, dep.getArchive());
-
-            // Add the source to the result
-            result.push(source);
+            await Source.create(depPath, dep.getArchive());
         }
-
-        // Return the result
-        return result;
     }
 
     // Clean the project
