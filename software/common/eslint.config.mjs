@@ -13,5 +13,6 @@ export default tseslint.config(eslint.configs.recommended, tseslint.configs.stri
     },
     rules: {
         '@typescript-eslint/no-floating-promises': 'error',
+        '@typescript-eslint/no-unused-expressions': 'error', // expressions whose value is unused
     },
 });
