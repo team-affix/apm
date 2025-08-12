@@ -12,8 +12,8 @@ import { Readable } from 'stream';
 import { promisify } from 'util';
 import { exec, ExecException } from 'child_process';
 import CheckProjectError from '../errors/check-project';
-import { ProjectRemoveError } from '../errors/project-remove';
-import { ProjectAddError } from '../errors/project-add';
+// import { ProjectRemoveError } from '../errors/project-remove';
+// import { ProjectAddError } from '../errors/project-add';
 
 // Promisify the exec function
 const execAsync = promisify(exec);
