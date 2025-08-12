@@ -372,41 +372,41 @@ export class Project {
         }
     }
 
-    // Add a dependency to the project
-    async add(pkg: Package): Promise<void> {
-        // Get the debugger
-        const dbg = debug('apm:common:models:project:add');
+    // // Add a dependency to the project
+    // async add(pkg: Package): Promise<void> {
+    //     // Get the debugger
+    //     const dbg = debug('apm:common:models:project:add');
 
-        // Indicate that we are adding a dependency to the project
-        dbg(`Adding dependency ${pkg.id} to project at ${this.cwd}`);
+    //     // Indicate that we are adding a dependency to the project
+    //     dbg(`Adding dependency ${pkg.id} to project at ${this.cwd}`);
 
-        // If the dependency is already in the project, throw an error
-        if (this.directDeps.has(pkg.id)) throw new ProjectAddError(this.cwd, pkg.id, 'Dependency already exists');
+    //     // If the dependency is already in the project, throw an error
+    //     if (this.directDeps.has(pkg.id)) throw new ProjectAddError(this.cwd, pkg.id, 'Dependency already exists');
 
-        // Add the dependency to the project
-        this.directDeps.add(pkg.id);
+    //     // Add the dependency to the project
+    //     this.directDeps.add(pkg.id);
 
-        // Write the direct dependencies to the deps file
-        await writeDirectDepsFile(this.cwd, this.directDeps);
-    }
+    //     // Write the direct dependencies to the deps file
+    //     await writeDirectDepsFile(this.cwd, this.directDeps);
+    // }
 
-    // Remove a dependency from the project
-    async remove(pkg: Package): Promise<void> {
-        // Get the debugger
-        const dbg = debug('apm:common:models:project:remove');
+    // // Remove a dependency from the project
+    // async remove(pkg: Package): Promise<void> {
+    //     // Get the debugger
+    //     const dbg = debug('apm:common:models:project:remove');
 
-        // Indicate that we are removing a dependency from the project
-        dbg(`Removing dependency ${pkg.id} from project at ${this.cwd}`);
+    //     // Indicate that we are removing a dependency from the project
+    //     dbg(`Removing dependency ${pkg.id} from project at ${this.cwd}`);
 
-        // If the dependency is not in the project, throw an error
-        if (!this.directDeps.has(pkg.id)) throw new ProjectRemoveError(this.cwd, pkg.id, 'Dependency not found');
+    //     // If the dependency is not in the project, throw an error
+    //     if (!this.directDeps.has(pkg.id)) throw new ProjectRemoveError(this.cwd, pkg.id, 'Dependency not found');
 
-        // Remove the dependency from the project
-        this.directDeps.delete(pkg.id);
+    //     // Remove the dependency from the project
+    //     this.directDeps.delete(pkg.id);
 
-        // Write the direct dependencies to the deps file
-        await writeDirectDepsFile(this.cwd, this.directDeps);
-    }
+    //     // Write the direct dependencies to the deps file
+    //     await writeDirectDepsFile(this.cwd, this.directDeps);
+    // }
 }
 
 export const __test__ = {

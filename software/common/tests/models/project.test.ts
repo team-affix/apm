@@ -1993,188 +1993,188 @@ describe('models/Project', () => {
         });
     });
 
-    describe('Project.add()', () => {
-        const projectName = 'APMTmpProject';
-        const projectDir = path.join(os.tmpdir(), projectName);
-        const localPackagesPath = path.join(projectDir, 'local-packages');
-        let project: Project;
+    // describe('Project.add()', () => {
+    //     const projectName = 'APMTmpProject';
+    //     const projectDir = path.join(os.tmpdir(), projectName);
+    //     const localPackagesPath = path.join(projectDir, 'local-packages');
+    //     let project: Project;
 
-        beforeEach(async () => {
-            // Remove the temporary directory if it exists
-            if (fs.existsSync(projectDir)) fs.rmSync(projectDir, { recursive: true, force: true });
-            // Create the temporary directory
-            fs.mkdirSync(projectDir, { recursive: true });
-            // Create the local packages directory
-            fs.mkdirSync(localPackagesPath, { recursive: true });
-            // Create the project
-            project = await Project.init(projectDir, { projectName });
-        });
+    //     beforeEach(async () => {
+    //         // Remove the temporary directory if it exists
+    //         if (fs.existsSync(projectDir)) fs.rmSync(projectDir, { recursive: true, force: true });
+    //         // Create the temporary directory
+    //         fs.mkdirSync(projectDir, { recursive: true });
+    //         // Create the local packages directory
+    //         fs.mkdirSync(localPackagesPath, { recursive: true });
+    //         // Create the project
+    //         project = await Project.init(projectDir, { projectName });
+    //     });
 
-        describe('success cases', () => {
-            it('add 1 dependency to empty project', async () => {
-                // Create the dependency
-                const pkg0 = await createPackage(
-                    path.join(localPackagesPath, 'pkg0.apm'),
-                    'pkg0',
-                    depend([]),
-                    new Map(),
-                );
-                // Expect the project to have no dependencies
-                expect(project.directDeps).toEqual(new Set());
-                // Add the dependency to the project
-                await project.add(pkg0);
-                // Expect the project to have the dependency
-                expect(project.directDeps).toEqual(new Set([pkg0.id]));
-                // reload the project
-                const reloadedProject = await Project.load(projectDir);
-                // Expect the project to have the dependency
-                expect(reloadedProject.directDeps).toEqual(new Set([pkg0.id]));
-            });
+    //     describe('success cases', () => {
+    //         it('add 1 dependency to empty project', async () => {
+    //             // Create the dependency
+    //             const pkg0 = await createPackage(
+    //                 path.join(localPackagesPath, 'pkg0.apm'),
+    //                 'pkg0',
+    //                 depend([]),
+    //                 new Map(),
+    //             );
+    //             // Expect the project to have no dependencies
+    //             expect(project.directDeps).toEqual(new Set());
+    //             // Add the dependency to the project
+    //             await project.add(pkg0);
+    //             // Expect the project to have the dependency
+    //             expect(project.directDeps).toEqual(new Set([pkg0.id]));
+    //             // reload the project
+    //             const reloadedProject = await Project.load(projectDir);
+    //             // Expect the project to have the dependency
+    //             expect(reloadedProject.directDeps).toEqual(new Set([pkg0.id]));
+    //         });
 
-            it('add 1 dependency to project with 1 dependency', async () => {
-                // Create the dependency
-                const pkg0 = await createPackage(
-                    path.join(localPackagesPath, 'pkg0.apm'),
-                    'pkg0',
-                    depend([]),
-                    new Map(),
-                );
-                const pkg1 = await createPackage(
-                    path.join(localPackagesPath, 'pkg1.apm'),
-                    'pkg1',
-                    depend([]),
-                    new Map(),
-                );
-                // Expect the project to have no dependencies
-                expect(project.directDeps).toEqual(new Set());
-                // Add the dependency to the project
-                await project.add(pkg0);
-                // Expect the project to have the dependency
-                expect(project.directDeps).toEqual(new Set([pkg0.id]));
-                // reload the project
-                const reloadedProject = await Project.load(projectDir);
-                // Expect the project to have the dependency
-                expect(reloadedProject.directDeps).toEqual(new Set([pkg0.id]));
-                // Add the second dependency to the project
-                await project.add(pkg1);
-                // Expect the project to have the dependencies
-                expect(project.directDeps).toEqual(new Set([pkg0.id, pkg1.id]));
-                // reload the project
-                const reloadedProject2 = await Project.load(projectDir);
-                // Expect the project to have the dependencies
-                expect(reloadedProject2.directDeps).toEqual(new Set([pkg0.id, pkg1.id]));
-            });
-        });
+    //         it('add 1 dependency to project with 1 dependency', async () => {
+    //             // Create the dependency
+    //             const pkg0 = await createPackage(
+    //                 path.join(localPackagesPath, 'pkg0.apm'),
+    //                 'pkg0',
+    //                 depend([]),
+    //                 new Map(),
+    //             );
+    //             const pkg1 = await createPackage(
+    //                 path.join(localPackagesPath, 'pkg1.apm'),
+    //                 'pkg1',
+    //                 depend([]),
+    //                 new Map(),
+    //             );
+    //             // Expect the project to have no dependencies
+    //             expect(project.directDeps).toEqual(new Set());
+    //             // Add the dependency to the project
+    //             await project.add(pkg0);
+    //             // Expect the project to have the dependency
+    //             expect(project.directDeps).toEqual(new Set([pkg0.id]));
+    //             // reload the project
+    //             const reloadedProject = await Project.load(projectDir);
+    //             // Expect the project to have the dependency
+    //             expect(reloadedProject.directDeps).toEqual(new Set([pkg0.id]));
+    //             // Add the second dependency to the project
+    //             await project.add(pkg1);
+    //             // Expect the project to have the dependencies
+    //             expect(project.directDeps).toEqual(new Set([pkg0.id, pkg1.id]));
+    //             // reload the project
+    //             const reloadedProject2 = await Project.load(projectDir);
+    //             // Expect the project to have the dependencies
+    //             expect(reloadedProject2.directDeps).toEqual(new Set([pkg0.id, pkg1.id]));
+    //         });
+    //     });
 
-        describe('failure cases', () => {
-            it('add a dependency that already exists', async () => {
-                // Create the dependency
-                const pkg0 = await createPackage(
-                    path.join(localPackagesPath, 'pkg0.apm'),
-                    'pkg0',
-                    depend([]),
-                    new Map(),
-                );
-                // Expect the project to have no dependencies
-                expect(project.directDeps).toEqual(new Set());
-                // Add the dependency to the project
-                await project.add(pkg0);
-                // Expect the project to have the dependency
-                expect(project.directDeps).toEqual(new Set([pkg0.id]));
-                // reload the project
-                const reloadedProject = await Project.load(projectDir);
-                // Expect the project to have the dependency
-                expect(reloadedProject.directDeps).toEqual(new Set([pkg0.id]));
-                // Add the dependency to the project AGAIN
-                await expect(project.add(pkg0)).rejects.toThrow(ProjectAddError);
-            });
-        });
-    });
+    //     describe('failure cases', () => {
+    //         it('add a dependency that already exists', async () => {
+    //             // Create the dependency
+    //             const pkg0 = await createPackage(
+    //                 path.join(localPackagesPath, 'pkg0.apm'),
+    //                 'pkg0',
+    //                 depend([]),
+    //                 new Map(),
+    //             );
+    //             // Expect the project to have no dependencies
+    //             expect(project.directDeps).toEqual(new Set());
+    //             // Add the dependency to the project
+    //             await project.add(pkg0);
+    //             // Expect the project to have the dependency
+    //             expect(project.directDeps).toEqual(new Set([pkg0.id]));
+    //             // reload the project
+    //             const reloadedProject = await Project.load(projectDir);
+    //             // Expect the project to have the dependency
+    //             expect(reloadedProject.directDeps).toEqual(new Set([pkg0.id]));
+    //             // Add the dependency to the project AGAIN
+    //             await expect(project.add(pkg0)).rejects.toThrow(ProjectAddError);
+    //         });
+    //     });
+    // });
 
-    describe('Project.remove()', () => {
-        const projectName = 'APMTmpProject';
-        const projectDir = path.join(os.tmpdir(), projectName);
-        const localPackagesPath = path.join(projectDir, 'local-packages');
-        let project: Project;
+    // describe('Project.remove()', () => {
+    //     const projectName = 'APMTmpProject';
+    //     const projectDir = path.join(os.tmpdir(), projectName);
+    //     const localPackagesPath = path.join(projectDir, 'local-packages');
+    //     let project: Project;
 
-        beforeEach(async () => {
-            // Remove the temporary directory if it exists
-            if (fs.existsSync(projectDir)) fs.rmSync(projectDir, { recursive: true, force: true });
-            // Create the temporary directory
-            fs.mkdirSync(projectDir, { recursive: true });
-            // Create the local packages directory
-            fs.mkdirSync(localPackagesPath, { recursive: true });
-            // Create the project
-            project = await Project.init(projectDir, { projectName });
-        });
+    //     beforeEach(async () => {
+    //         // Remove the temporary directory if it exists
+    //         if (fs.existsSync(projectDir)) fs.rmSync(projectDir, { recursive: true, force: true });
+    //         // Create the temporary directory
+    //         fs.mkdirSync(projectDir, { recursive: true });
+    //         // Create the local packages directory
+    //         fs.mkdirSync(localPackagesPath, { recursive: true });
+    //         // Create the project
+    //         project = await Project.init(projectDir, { projectName });
+    //     });
 
-        describe('success cases', () => {
-            it('remove 1 dependency from project with 1 dependency', async () => {
-                // Create the dependency
-                const pkg0 = await createPackage(
-                    path.join(localPackagesPath, 'pkg0.apm'),
-                    'pkg0',
-                    depend([]),
-                    new Map(),
-                );
-                // Add the dependency to the project
-                await project.add(pkg0);
-                // reload the project
-                const reloadedProject = await Project.load(projectDir);
-                // Remove the dependency from the project
-                await project.remove(pkg0);
-                // Expect the project to have no dependencies
-                expect(project.directDeps).toEqual(new Set());
-                // reload the project
-                const reloadedProject2 = await Project.load(projectDir);
-                // Expect the project to have no dependencies
-                expect(reloadedProject2.directDeps).toEqual(new Set());
-            });
+    //     describe('success cases', () => {
+    //         it('remove 1 dependency from project with 1 dependency', async () => {
+    //             // Create the dependency
+    //             const pkg0 = await createPackage(
+    //                 path.join(localPackagesPath, 'pkg0.apm'),
+    //                 'pkg0',
+    //                 depend([]),
+    //                 new Map(),
+    //             );
+    //             // Add the dependency to the project
+    //             await project.add(pkg0);
+    //             // reload the project
+    //             const reloadedProject = await Project.load(projectDir);
+    //             // Remove the dependency from the project
+    //             await project.remove(pkg0);
+    //             // Expect the project to have no dependencies
+    //             expect(project.directDeps).toEqual(new Set());
+    //             // reload the project
+    //             const reloadedProject2 = await Project.load(projectDir);
+    //             // Expect the project to have no dependencies
+    //             expect(reloadedProject2.directDeps).toEqual(new Set());
+    //         });
 
-            it('remove 1 dependency from project with 2 dependencies', async () => {
-                // Create the dependencies
-                const pkg0 = await createPackage(
-                    path.join(localPackagesPath, 'pkg0.apm'),
-                    'pkg0',
-                    depend([]),
-                    new Map(),
-                );
-                const pkg1 = await createPackage(
-                    path.join(localPackagesPath, 'pkg1.apm'),
-                    'pkg1',
-                    depend([]),
-                    new Map(),
-                );
-                // Add the dependencies to the project
-                await project.add(pkg0);
-                await project.add(pkg1);
-                // Expect the project to have the dependencies
-                expect(project.directDeps).toEqual(new Set([pkg0.id, pkg1.id]));
-                // reload the project
-                const reloadedProject = await Project.load(projectDir);
-                // Remove the dependency from the project
-                await project.remove(pkg0);
-                // Expect the project to have the dependency
-                expect(project.directDeps).toEqual(new Set([pkg1.id]));
-                // reload the project
-                const reloadedProject2 = await Project.load(projectDir);
-                // Expect the project to have the dependency
-                expect(reloadedProject2.directDeps).toEqual(new Set([pkg1.id]));
-            });
-        });
+    //         it('remove 1 dependency from project with 2 dependencies', async () => {
+    //             // Create the dependencies
+    //             const pkg0 = await createPackage(
+    //                 path.join(localPackagesPath, 'pkg0.apm'),
+    //                 'pkg0',
+    //                 depend([]),
+    //                 new Map(),
+    //             );
+    //             const pkg1 = await createPackage(
+    //                 path.join(localPackagesPath, 'pkg1.apm'),
+    //                 'pkg1',
+    //                 depend([]),
+    //                 new Map(),
+    //             );
+    //             // Add the dependencies to the project
+    //             await project.add(pkg0);
+    //             await project.add(pkg1);
+    //             // Expect the project to have the dependencies
+    //             expect(project.directDeps).toEqual(new Set([pkg0.id, pkg1.id]));
+    //             // reload the project
+    //             const reloadedProject = await Project.load(projectDir);
+    //             // Remove the dependency from the project
+    //             await project.remove(pkg0);
+    //             // Expect the project to have the dependency
+    //             expect(project.directDeps).toEqual(new Set([pkg1.id]));
+    //             // reload the project
+    //             const reloadedProject2 = await Project.load(projectDir);
+    //             // Expect the project to have the dependency
+    //             expect(reloadedProject2.directDeps).toEqual(new Set([pkg1.id]));
+    //         });
+    //     });
 
-        describe('failure cases', () => {
-            it('remove a dependency that is not in the project', async () => {
-                // Create the dependency
-                const pkg0 = await createPackage(
-                    path.join(localPackagesPath, 'pkg0.apm'),
-                    'pkg0',
-                    depend([]),
-                    new Map(),
-                );
-                // Add the dependency to the project AGAIN
-                await expect(project.remove(pkg0)).rejects.toThrow(ProjectRemoveError);
-            });
-        });
-    });
+    //     describe('failure cases', () => {
+    //         it('remove a dependency that is not in the project', async () => {
+    //             // Create the dependency
+    //             const pkg0 = await createPackage(
+    //                 path.join(localPackagesPath, 'pkg0.apm'),
+    //                 'pkg0',
+    //                 depend([]),
+    //                 new Map(),
+    //             );
+    //             // Add the dependency to the project AGAIN
+    //             await expect(project.remove(pkg0)).rejects.toThrow(ProjectRemoveError);
+    //         });
+    //     });
+    // });
 });
