@@ -204,7 +204,7 @@ class Registry {
         const projectDirPath = fs.mkdtempSync(path.join(os.tmpdir(), `apm-vet-${pkg.name}-${pkg.id}`));
 
         // Create a project from the package in a temporary directory
-        const project = await Project.init(projectDirPath, { pkg });
+        let project = await Project.init(projectDirPath, { pkg });
 
         // Check for any illegal files (anything with an extension other than .agda or .md) within the root source
         if (project.rootSource.miscFiles.length > 0)
@@ -221,6 +221,9 @@ class Registry {
 
         // Install the project
         await project.install(pkgs);
+
+        // TEMPORARY: Reload the project to load the dependency sources correctly.
+        project = await Project.load(projectDirPath);
 
         // Check the project
         await project.check();

@@ -305,6 +305,8 @@ export class Project {
             // Get the path to the dependency
             const depPath = path.join(depsFolderPath, dep.name);
 
+            dbg(`Installing dependency ${dep.id} at ${depPath}`);
+
             // If the dependency is already installed, continue
             if (fs.existsSync(depPath)) continue;
 
@@ -365,6 +367,8 @@ export class Project {
                 // Unhandled errors
                 throw error;
             }
+
+            dbg(`Checked file successfully`);
         }
     }
 
