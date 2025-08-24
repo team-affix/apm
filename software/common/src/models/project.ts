@@ -293,9 +293,10 @@ export class Project {
         // Indicate that we are installing the project
         dbg(`Installing project at ${this.cwd}`);
 
-        // Create deps folder if it does not already exist
+        // Remove and recreate the deps folder
         const depsFolderPath = path.join(this.cwd, DEPS_FOLDER_NAME);
-        if (!fs.existsSync(depsFolderPath)) fs.mkdirSync(depsFolderPath, { recursive: true });
+        if (fs.existsSync(depsFolderPath)) fs.rmSync(depsFolderPath, { recursive: true });
+        fs.mkdirSync(depsFolderPath, { recursive: true });
 
         // Install the direct dependencies
         for (const dep of transitiveDeps) {
@@ -304,25 +305,9 @@ export class Project {
 
             dbg(`Installing dependency ${dep.id} at ${depPath}`);
 
-            // If the dependency is already installed, continue
-            if (fs.existsSync(depPath)) continue;
-
             // Install the dependency
             await Source.create(depPath, dep.getArchive());
         }
-    }
-
-    // Clean the project
-    async clean(): Promise<void> {
-        // Get the debugger
-        const dbg = debug('apm:common:models:project:clean');
-
-        // Indicate that we are cleaning the project
-        dbg(`Cleaning project at ${this.cwd}`);
-
-        // Remove the deps folder
-        const depsFolderPath = path.join(this.cwd, DEPS_FOLDER_NAME);
-        if (fs.existsSync(depsFolderPath)) fs.rmSync(depsFolderPath, { recursive: true });
     }
 
     // Check if the project is valid

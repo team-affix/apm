@@ -100,27 +100,6 @@ export const installCommand = new Command()
         }
     });
 
-export const cleanCommand = new Command()
-    .name('clean')
-    .description('Cleans the current project')
-    .action(async () => {
-        try {
-            // Get the current working directory
-            const cwd = process.cwd();
-            // Get the project
-            const project = await common.Project.load(cwd);
-            // Clean the project
-            await project.clean();
-        } catch (error: unknown) {
-            if (error instanceof Error) {
-                console.error(error.message);
-            } else {
-                console.error(error);
-            }
-            process.exit(1);
-        }
-    });
-
 export const checkCommand = new Command()
     .name('check')
     .description('Typechecks the current project')
@@ -208,7 +187,6 @@ export const projectCommand = new Command()
     .description('Manages the current project')
     .addCommand(initCommand)
     .addCommand(installCommand)
-    .addCommand(cleanCommand)
     .addCommand(checkCommand)
     .addCommand(packCommand)
     .addCommand(treeCommand);

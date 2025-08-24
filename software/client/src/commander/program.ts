@@ -18,13 +18,12 @@ program.addCommand(remoteCommands.remoteCommand);
 // Add project shorthands
 program.addCommand(projectCommands.initCommand);
 program.addCommand(projectCommands.installCommand);
-program.addCommand(projectCommands.cleanCommand);
 program.addCommand(projectCommands.checkCommand);
 program.addCommand(projectCommands.packCommand);
+program.addCommand(projectCommands.treeCommand);
 
 // Add package shorthands
 program.addCommand(packageCommands.infoCommand);
 program.addCommand(packageCommands.lsCommand);
 program.addCommand(packageCommands.pullCommand);
 program.addCommand(packageCommands.pushCommand);
-program.addCommand(packageCommands.treeCommand);
