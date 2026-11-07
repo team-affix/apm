@@ -1,1 +1,0 @@
-{"statusCode": 200, "event": "{'folder_name': 'tempdir'}", "result": "CompletedProcess(args=['agda', '-i/tmp/dl/agda-files/tempdir', '/tmp/dl/agda-files/tempdir/main.agda'], returncode=0, stdout='', stderr='agda: /lib64/libtinfo.so.6: no version information available (required by agda)\\n')"}

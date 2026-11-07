@@ -1,74 +1,42 @@
-# CLI Reference
+# CLI reference
 
-Binary: `apm`
+State lives in `~/.dpm/client` (override with `DPM_HOME`). The local registry is `<home>/registry` (override with `DPM_REGISTRY`). Remotes are in `<home>/remotes.json`, and their order is the lookup priority.
 
-## Top-level commands
+## Projects
 
-- `apm project` — manage the current project
-- `apm package` — query/pull/push packages
-- `apm remote` — manage remotes
+A project directory contains `dpm.json` (`{ "name", "deps" }`), the content in `<Name>/`, and installed dependencies in `deps/<Dep>/`.
 
-Shorthands also exist for common subcommands: `apm init`, `apm install`, `apm clean`, `apm check`, `apm pack`, `apm tree`, `apm info`, `apm ls`, `apm pull`, `apm push`.
+| Command | Description |
+|---|---|
+| `dpm init <name>` | Create `dpm.json` and `<name>/` |
+| `dpm add <id...>` | Add direct dependencies. An existing dependency with the same name is replaced; that's how you pick a version or override a transitive one. |
+| `dpm remove <id-or-name...>` | Remove direct dependencies |
+| `dpm install [-r <remote...>] [--offline]` | Resolve the tree, keep a local copy of anything fetched, and write `deps/<name>/` |
+| `dpm pack [-r <remote...>] [--offline]` | Build a package from `<Name>/` and `dpm.json`, store it locally, and print its ID |
 
-## Project
+## Packages
 
-- `apm project init [project-name] [--pkg <id>]`
-  - Initializes a project in the current directory
-  - Creates `deps.txt`, root source folder `<project-name>/`, and `.agda-lib`
-  - If `--pkg <id>` is supplied, bootstraps from an existing package instead of an empty project
-- `apm project install`
-  - Resolves the project tree from `deps.txt` and installs dependencies under `deps/`
-- `apm project clean`
-  - Removes `deps/`
-- `apm project check`
-  - Typechecks all root `.agda` files using `agda`
-- `apm project pack`
-  - Creates a package from the current project and registers it in the local registry
-  - Prints the resulting package id `name@<sha256>`
-- `apm project tree`
-  - Prints the dependency tree of the current project
+| Command | Description |
+|---|---|
+| `dpm ls [ids...] [-r <remote>]` | List all packages, or show which of the given IDs are present |
+| `dpm info <id>` | Show a local package |
+| `dpm tree <id> [-r <remote...>] [--offline]` | Show the resolved dependency tree |
+| `dpm pull <id> [-r <remote...>]` | Fetch a package and its resolved tree. Each package comes from the first remote that has it. |
+| `dpm push <id> <remote> [-p <provider...>]` | Send the package and whatever local parts of its tree the remote lacks. Providers (default: all other remotes) are where the server may fetch anything else. |
 
-## Package
+## Remotes
 
-- `apm package info <id>`
-  - Prints file path, name, id, direct deps, archive offset
-- `apm package tree <id>`
-  - Prints the dependency tree of the given package
-- `apm package ls [ids...] [-r, --remote <name>]`
-  - Without `-r`, lists locally present package IDs (or filters by provided IDs)
-  - With `-r`, queries the named remote for the presence of provided IDs and prints those that exist there
-- `apm package pull <remote> <id>`
-  - Pulls `<id>` and its entire dependency tree from `<remote>` into the local registry. Full-tree pull avoids cross-dependence on other registries.
-- `apm package push <remote> <id>`
+| Command | Description |
+|---|---|
+| `dpm remote add <name> <url>` | Add a remote (appended, so it has the lowest priority) |
+| `dpm remote remove <name>` | Remove a remote |
+| `dpm remote ls` | List remotes in priority order |
+| `dpm remote check <name>` | Check that a remote is reachable |
 
-  - Pushes `<id>` and its entire dependency tree to `<remote>`. Full-tree push ensures the remote registry is self-sufficient without upstreams.
+## Server
 
-  Example (back up your beliefs):
+```bash
+PORT=3000 DPM_REGISTRY=/srv/dpm dpm-server
+```
 
-  ```bash
-  apm package push backupRemote SomePkg@<sha256>
-  # The remote registry vets each submitted package in the dependency tree
-  ```
-
-## Remote
-
-- `apm remote ls`
-  - Lists known remotes from `~/.apm/client/remotes.json`
-- `apm remote add <name> <url> [--skip-health-check]`
-
-  - Performs a health check on `<url>/health` and only adds the remote if it succeeds. Use `--skip-health-check` to bypass the check.
-
-  Example:
-
-  ```bash
-  # will fail to add if health check fails
-  apm remote add backupRemote http://example.org
-
-  # bypass health check
-  apm remote add backupRemote http://example.org --skip-health-check
-  ```
-
-- `apm remote rm <name>`
-  - Removes a remote
-- `apm remote health <name>`
-  - Hits `<url>/health` for the named remote
+`HOST` sets the bind address. `DPM_ALLOW_PROVIDERS=0` stops the server from fetching dependencies from provider URLs given in pushes.

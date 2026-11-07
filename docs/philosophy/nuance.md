@@ -1,6 +1,6 @@
 # Nuance and shelling points
 
-Human discourse often clusters around extreme, salient positions (Schelling points), because it’s painful to hold beliefs “in the middle.” APM’s formal medium and community incentives can increase nuance:
+Human discourse often clusters around extreme, salient positions (Schelling points), because it’s painful to hold beliefs “in the middle.” A formal medium for beliefs and community incentives can increase nuance:
 
 - Precision through symbols: logic symbols and types force clarity about definitions, scopes, and assumptions
 - Compositional beliefs: small, targeted modules make it easy to express nuanced positions and their exact dependencies

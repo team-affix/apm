@@ -1,9 +1,9 @@
 # Idea-centric evaluation
 
-APM is built to evaluate ideas on their logical merits.
+The platform DPM supports is built to evaluate ideas on their logical merits.
 
 - No identity gatekeeping: anonymity makes it harder to invoke identity politics or identity-based agreement/disagreement
-- Fitness function: emphasis on typecheckability, internal consistency, and explicit assumptions
+- Fitness function: emphasis on logical validity, internal consistency, and explicit assumptions
 - Transparent dependencies: package trees clarify the provenance and assumptions feeding into a claim
 
 Consequences:
@@ -13,7 +13,7 @@ Consequences:
 
 ## Explicit assumptions expose weak claims
 
-Because reaching a claim in Agda requires you to state your assumptions explicitly:
+Because reaching a claim in a checked logic language requires you to state your assumptions explicitly:
 
 - Claims you expect to be wrong must surface the premises that make them “work,” often revealing the faulty or extreme assumption
 - Heretical or unpopular views become inspectable: readers can see exactly which assumptions they rest on

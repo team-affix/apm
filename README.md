@@ -1,101 +1,69 @@
-# APM — Agda Package Manager
+# DPM: Decentralized Package Manager
 
-APM is a package manager and minimal registry protocol designed specifically for Agda. It aims to support a broader vision: a logic platform for public discourse where selection pressures on statements are logical validity and consistency. APM is a precursor project toward that goal.
+DPM stores immutable, content-addressed packages across any number of independent registries.
 
-- Built for Agda’s needs during typechecking (e.g., project structure and global search path constraints)
-- Deterministic package identity (`name@sha256` of the package payload)
-- Local vetting on publish/registration (typechecking and file hygiene)
-- Decentralized registries; no single “home” registry
-- Designed with anonymity and resilience in mind (see docs for goals and model)
+- A package is a **name**, a set of **direct dependency IDs**, and an **opaque payload**.
+- Its ID is `name@sha256(content)`. The ID says *what* a package is, never *where* it lives, so any registry with the bytes is a valid source, and every fetch is checked against the ID.
+- Dependencies are resolved by name with **overrides** and **peer-conflict** detection, across whatever registries you point at.
+- Registries are dumb stores. The resolver is separate. Anything else (e.g. logic validation) is added as one `verify` step between resolve and put.
 
-## Requirements
-
-- Node.js 18+ (for the CLI and server)
-- Agda installed and available on PATH (used for typechecking during vetting and `apm project check`)
+DPM is the storage layer of a logic platform for public discourse (see [docs/philosophy](docs/philosophy/index.md)), but it knows nothing about logic and works for any kind of content. It replaces the earlier Agda-specific APM.
 
 ## Install
 
 ```bash
-npm i -g @team-affix/apm-client
+npm i -g @team-affix/dpm   # provides `dpm` and `dpm-server`
 ```
 
-- CLI binary: `apm`
-
-**Full CLI reference: [docs/cli.md](docs/cli.md)**
+Requires Node.js 20+.
 
 ## Quickstart
 
-1. Create a new Agda project in an empty directory:
-
 ```bash
-mkdir mypkg && cd mypkg
-apm init MyPkg
+# run a registry
+PORT=3000 dpm-server &
+
+dpm remote add home http://localhost:3000
+
+# publish something
+mkdir base && cd base
+dpm init Base
+echo "axiom A" > Base/axioms.txt
+BASE=$(dpm pack)            # Base@<sha256>
+dpm push $BASE home
+
+# depend on it
+mkdir ../app && cd ../app
+dpm init App
+dpm add $BASE
+dpm install                 # writes deps/Base/axioms.txt
 ```
 
-This creates:
+See the [CLI reference](docs/cli.md) and the [architecture](docs/architecture.md) (package format, resolution rules, HTTP protocol, building a layer on top).
 
-- `MyPkg/` (your root source)
-- `.agda-lib` (Agda library file with include paths)
-- `deps.txt` (list of package IDs your project depends on)
+## Library
 
-2. Typecheck your project:
-
-```bash
-apm check
+```ts
+import { Package, Registry, RemoteRegistry, resolve, ingest } from '@team-affix/dpm';
+import { createServer } from '@team-affix/dpm/server';
+import { pull, push, Project } from '@team-affix/dpm/client';
 ```
 
-3. Package and register it locally:
+## Development
 
 ```bash
-apm pack
-# prints: Package created: MyPkg@<sha256>
+npm ci
+npm test          # vitest
+npm run lint
+npm run build
 ```
 
-4. List packages in your local registry
+Layout:
 
-```bash
-apm ls
 ```
-
-5. Add a remote registry:
-
-```bash
-apm remote add MyRemote http://example.org
+src/core     package format, registry, resolver, ingest, HTTP client, archive helpers
+src/server   HTTP server (dpm-server)
+src/client   projects, push/pull, CLI (dpm)
+test/        unit tests and end-to-end tests against real servers
+docs/        architecture, CLI and philosophy
 ```
-
-6. Push your package (and its entire dependency tree) to a remote registry:
-
-```bash
-apm package push MyRemote MyPkg@<sha256>
-```
-
-7. On another machine, clone by pulling the package (and full tree) from the remote into your local registry:
-
-```bash
-apm package pull MyRemote MyPkg@<sha256>
-```
-
-## Registries and resilience
-
-- APM uses decentralized registries. Every server provides http access to a registry; any client can pull from and push to any registry.
-- When pushing or pulling, APM transfers the entire package tree to prevent cross-dependence between registries and keep each registry self-sufficient even if others disappear.
-- Local registry path:
-  - Client default: `~/.apm/client/registry`
-
-## Concepts and design goals
-
-- Agda-first: package/project structure maps to Agda’s global search path; projects have a single root module namespace.
-- Deterministic IDs: each package file’s bytes determine its id; IDs look like `name@<sha256>`, where `name` is the agda source folder name, NOT an arbitrary name given to the package after compilation. [more on this](docs/philosophy/deterministic-ids.md)
-- Vetting: on registration/publish, APM verifies only `.agda` and `.md` files in the root source, installs declared deps, and typechecks using Agda.
-- Decentralized model, anonymity, and takedown resilience are core design goals.
-
-## Documentation
-
-- Overview and goals: [docs/overview.md](docs/overview.md)
-- Registry model and storage layout: [docs/registry.md](docs/registry.md)
-- Concepts: vetting, package IDs, dependency trees, Agda constraints: [docs/concepts.md](docs/concepts.md)
-- Philosophy and goals: [docs/philosophy/index.md](docs/philosophy/index.md)
-
-## License
-
-MIT License. See `LICENSE`.

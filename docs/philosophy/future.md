@@ -1,25 +1,22 @@
 # Future directions
 
-- Stronger reproducibility guarantees (pinned toolchains, hermetic builds)
-- Content signatures and optional attestations (while keeping anonymity possible)
-- Federation and mirroring protocols beyond push/pull (gossip or CRDT-like sync)
-- Richer query/indexing layers that still preserve the minimal, verifiable core
+## DLPM: the logic layer
 
-## Proof packages (proposed)
+A decentralized logic package manager built on DPM, adding one step between resolve and put: logical validation of the resolved tree. Because DPM already resolves the full tree (with overrides) before anything is stored, DLPM only needs to:
 
-A strict class of packages intended for formal results:
+1. unpack the resolved packages to disk (`unpackToDirectory`), and
+2. check them with the logic kernel, rejecting the push if the check fails.
 
-- Allowed: non-postulated Agda content (definitions, theorems, derivations)
-- Disallowed: introducing new axioms (no `postulate` declarations)
-- Dependencies: may depend on any type of package (proof or non-proof)
+DPM exposes this as a `verify` function on `ingest()` and `createServer()`.
 
-Enforcement ideas:
+Notes for the logic layer:
 
-- Extend registry vetting for proof packages to reject root-source usage of `postulate`
-- Optional linter to check the entire dependency closure for postulates if desired
+- Validity belongs to a *resolved tree*, not to a package alone. Overrides swap dependencies, so a package checked against one `C` must be re-checked when a dependent overrides `C`.
+- That also makes overrides a tool for debate: "take this argument, but plug in my version of `C`." If it still checks, the conclusion survives the changed assumption. If not, the checker shows where it depended on the original.
 
-Open questions:
+## DPM
 
-- How to mark a package as a proof package (metadata, naming convention, or header flag)
-- Policy around foundational libraries and standard axioms
-- How to surface proof/non-proof status in discovery and tooling
+- Finding packages at scale: gossip between registries, or a DHT / IPFS backend, in addition to configured remote lists
+- Self-describing hashes (multihash/CID) so the hash algorithm can change without breaking old IDs
+- Optional signatures and attestations that keep anonymity possible
+- Pinning and mirroring policies for registry operators
