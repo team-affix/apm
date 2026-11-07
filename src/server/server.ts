@@ -78,6 +78,16 @@ function stringArray(value: unknown, field: string): string[] {
     return value as string[];
 }
 
+function pushedPackages(value: unknown): Package[] {
+    if (!Array.isArray(value)) throw new HttpError(400, `'packages' must be an array of { id, data }`);
+    return value.map((entry: unknown) => {
+        const { id, data } = (entry ?? {}) as { id?: unknown; data?: unknown };
+        if (typeof id !== 'string' || typeof data !== 'string')
+            throw new HttpError(400, `Each pushed package must be { id: string, data: base64 string }`);
+        return Package.decodeAs(Buffer.from(data, 'base64'), id);
+    });
+}
+
 function providerUrl(raw: string): string {
     let url: URL;
     try {
@@ -129,9 +139,8 @@ export function createHandler(options: ServerOptions): http.RequestListener {
 
         if (method === 'POST' && pathname === '/packages') {
             const body = await readJson(req, maxBodyBytes);
-            const packages = stringArray(body.packages, 'packages').map((b64) =>
-                Package.decode(Buffer.from(b64, 'base64')),
-            );
+            // Step 1, before anything else: hash verification of every claimed ID.
+            const packages = pushedPackages(body.packages);
             const providers = stringArray(body.providers, 'providers').map(providerUrl);
             if (providers.length > 0 && !allowProviders)
                 throw new HttpError(400, 'This server does not fetch from provider registries');

@@ -7,6 +7,7 @@ DPM has three parts with strictly separate jobs:
               │
               ▼
 ┌──────────────────────────────┐
+│ 0. hash check  ── decodeAs() │  bytes must hash to the claimed / requested ID
 │ ingest()                     │  the only way packages should enter a registry
 │   1. resolve()   ── Resolver │  full tree, overrides, peer conflicts, missing deps
 │   2. verify()?   ── optional │  supplied by a layer above (e.g. logic validation)
@@ -30,6 +31,15 @@ All integers are u32 little-endian.
 - **ID** = `<name>@<lowercase hex sha256 of the whole encoding>`.
 - **Names** must be non-empty, at most 200 bytes, not `.`/`..`, and contain no whitespace, control characters or `@ / \ : * ? " < > |`. Names become directory names.
 - **Canonical encoding** is enforced: `Package.decode` rejects any bytes that aren't the canonical encoding of their own contents.
+
+## Hash verification
+
+The first check on any bytes, before anything else is done with them. `Package.decodeAs(bytes, id)` decodes and throws `IdMismatchError` unless the content hashes to `id`. It runs everywhere bytes cross a trust boundary:
+
+- **Push:** each pushed package carries its claimed ID, and the server checks every hash before resolving anything or contacting any provider. One mismatch rejects the whole push with 400.
+- **Fetch from a remote:** the bytes must hash to the ID that was requested.
+- **Read from disk:** the local registry re-checks each file against its filename, which catches corruption or tampering.
+- **Any source in resolution:** a source returning a different package than requested is skipped, and the next source is tried.
 
 ## Registry
 
@@ -72,9 +82,9 @@ The result lists every package in the resolved tree, dependencies before depende
 | `GET /packages` | `{ "ids": [...] }` |
 | `GET /packages/:id` | raw package bytes, or 404 |
 | `POST /packages/has` `{ "ids": [...] }` | `{ "ids": [...] }` (the subset present) |
-| `POST /packages` `{ "packages": [base64...], "providers": [url...] }` | `{ "ids": [...], "stored": [...] }` |
+| `POST /packages` `{ "packages": [{ "id", "data" }...], "providers": [url...] }` | `{ "ids": [...], "stored": [...] }` |
 
-`POST /packages` runs `ingest` with the provider URLs as remote sources. Errors are `{ "error": "..." }` with status 400 (malformed), 413 (too large), 422 (doesn't resolve, or rejected by `verify`) or 404.
+`POST /packages` first checks every package's hash against its claimed `id` (`data` is the base64 package bytes), then runs `ingest` with the provider URLs as remote sources. Errors are `{ "error": "..." }` with status 400 (malformed, or a hash mismatch), 413 (too large), 422 (doesn't resolve, or rejected by `verify`) or 404.
 
 Server options: `verify`, `maxBodyBytes` (default 64 MiB), `allowProviders` (default true; `DPM_ALLOW_PROVIDERS=0` turns it off) and `maxProviders` (default 16). Fetching from providers means the server makes outbound requests to URLs chosen by whoever pushes. Turn providers off if that isn't acceptable for your deployment.
 

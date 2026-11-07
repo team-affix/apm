@@ -64,14 +64,11 @@ export class Registry implements PackageSource {
             if ((e as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
             throw e;
         }
-        let pkg: Package;
         try {
-            pkg = Package.decode(bytes);
+            return Package.decodeAs(bytes, id);
         } catch (e) {
             throw new RegistryError(`Stored package ${id} is corrupt: ${(e as Error).message}`);
         }
-        if (pkg.id !== id) throw new RegistryError(`Stored package ${id} is corrupt: its content hashes to ${pkg.id}`);
-        return pkg;
     }
 
     /** The subset of `ids` that are stored here. */

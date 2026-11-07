@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 import { describe, expect, it } from 'vitest';
-import { InvalidPackageError, Package } from '../src/core';
+import { IdMismatchError, InvalidPackageError, Package } from '../src/core';
 import { pkg } from './helpers';
 
 const u32 = (n: number) => {
@@ -66,6 +66,32 @@ describe('Package', () => {
 
     it('freezes dependencies', () => {
         expect(Object.isFrozen(pkg('Root', [dep1]).deps)).toBe(true);
+    });
+
+    describe('decodeAs (hash verification)', () => {
+        it('accepts bytes that hash to the expected ID', () => {
+            const p = pkg('Root', [dep1], 'x');
+            expect(Package.decodeAs(p.bytes, p.id).id).toBe(p.id);
+        });
+
+        it('rejects bytes that hash to a different ID', () => {
+            const real = pkg('Root', [], 'real');
+            const other = pkg('Root', [], 'tampered');
+            const err = (() => {
+                try {
+                    Package.decodeAs(other.bytes, real.id);
+                } catch (e) {
+                    return e;
+                }
+            })();
+            expect(err).toBeInstanceOf(IdMismatchError);
+            expect(err).toMatchObject({ expected: real.id, actual: other.id });
+        });
+
+        it('rejects a correct hash under a different name', () => {
+            const p = pkg('Root');
+            expect(() => Package.decodeAs(p.bytes, `Other@${p.id.split('@')[1]}`)).toThrow(IdMismatchError);
+        });
     });
 
     describe('decode rejects', () => {

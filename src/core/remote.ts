@@ -11,7 +11,8 @@ import { PackageSource } from './source';
  *   GET  /packages/:id           -> raw package bytes (application/octet-stream), or 404
  *   POST /packages/has           { ids }                  -> { ids }   (the subset present)
  *   POST /packages               { packages, providers }  -> { stored, ids }
- *        packages:  base64 package bytes
+ *        packages:  [{ id, data }]: the claimed ID and the base64 package bytes.
+ *                   The server checks each hash first, before resolving anything.
  *        providers: registry URLs where dependencies missing from the server and the batch may be found
  */
 export interface PushResult {
@@ -84,15 +85,17 @@ export class RemoteRegistry implements PackageSource {
         const res = await this.request(`/packages/${encodeURIComponent(id)}`);
         if (res.status === 404) return undefined;
         if (!res.ok) throw new RemoteError(`${this.url} failed to serve ${id} (${res.status})`, res.status);
-        const pkg = Package.decode(Buffer.from(await res.arrayBuffer()));
-        if (pkg.id !== id) throw new RemoteError(`${this.url} served ${pkg.id} when asked for ${id}`);
-        return pkg;
+        try {
+            return Package.decodeAs(Buffer.from(await res.arrayBuffer()), id);
+        } catch (e) {
+            throw new RemoteError(`${this.url} served bad content for ${id}: ${(e as Error).message}`);
+        }
     }
 
     /** Pushes packages. The server resolves each one (using `providers` for missing dependencies) before storing. */
     async push(packages: readonly Package[], providers: readonly string[] = []): Promise<PushResult> {
         return this.json<PushResult>('/packages', {
-            packages: packages.map((p) => p.bytes.toString('base64')),
+            packages: packages.map((p) => ({ id: p.id, data: p.bytes.toString('base64') })),
             providers,
         });
     }

@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import { InvalidPackageError } from './errors';
+import { IdMismatchError, InvalidPackageError } from './errors';
 import { assertValidName, formatId, parseId } from './id';
 
 /**
@@ -70,6 +70,16 @@ export class Package {
         const body = Buffer.from(payload);
         const bytes = encode(name, sorted, body);
         return new Package(name, Object.freeze(sorted), body, bytes, formatId(name, hashOf(bytes)));
+    }
+
+    /**
+     * Hash verification: decodes `input` and checks that it is the package `expectedId`.
+     * Use this wherever bytes arrive with a claimed or requested ID, before doing anything else with them.
+     */
+    static decodeAs(input: Buffer | Uint8Array, expectedId: string): Package {
+        const pkg = Package.decode(input);
+        if (pkg.id !== expectedId) throw new IdMismatchError(expectedId, pkg.id);
+        return pkg;
     }
 
     /** Decodes package bytes, rejecting anything that is malformed or not canonically encoded. */

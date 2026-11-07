@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import http from 'http';
+import { AddressInfo } from 'net';
+import { describe, expect, it, onTestFinished } from 'vitest';
 import { Package, RemoteError } from '../src/core';
 import { pkg } from './helpers';
 import { startServer } from './server-helpers';
@@ -112,7 +114,11 @@ describe('server', () => {
             ['invalid JSON', '{'],
             ['a non-object body', '[]'],
             ['packages not an array', { packages: 'x' }],
-            ['bytes that are not a package', { packages: [Buffer.from('junk').toString('base64')] }],
+            ['a bare base64 string instead of { id, data }', { packages: [pkg('A').bytes.toString('base64')] }],
+            [
+                'bytes that are not a package',
+                { packages: [{ id: pkg('A').id, data: Buffer.from('junk').toString('base64') }] },
+            ],
             ['non-string providers', { packages: [], providers: [1] }],
         ])('%s', async (_, body) => {
             const { url } = await startServer();
@@ -127,10 +133,54 @@ describe('server', () => {
         });
     });
 
+    describe('hash verification (first check, before resolution)', () => {
+        const entry = (id: string, p: Package) => ({ id, data: p.bytes.toString('base64') });
+
+        it('rejects a package whose bytes do not hash to its claimed ID, storing nothing', async () => {
+            const { url, registry } = await startServer();
+            const real = pkg('A', [], 'real');
+            const swapped = pkg('A', [], 'swapped');
+            const ok = pkg('Ok');
+            const res = await post(`${url}/packages`, { packages: [entry(ok.id, ok), entry(real.id, swapped)] });
+            expect(res.status).toBe(400);
+            expect(res.body.error).toMatch(/hash check failed/);
+            expect(await registry.list()).toEqual([]);
+        });
+
+        it('fails the hash check before trying to resolve or contacting providers', async () => {
+            let providerHits = 0;
+            const spy = http.createServer((_req, res) => {
+                providerHits++;
+                res.writeHead(404).end();
+            });
+            await new Promise<void>((r) => spy.listen(0, '127.0.0.1', r));
+            onTestFinished(() => new Promise<void>((r) => spy.close(() => r())));
+            const spyUrl = `http://127.0.0.1:${(spy.address() as AddressInfo).port}`;
+
+            const { url } = await startServer();
+            const needsDeps = pkg('B', [pkg('Missing')]); // would fail resolution (422) if it got that far
+            const res = await post(`${url}/packages`, {
+                packages: [entry(needsDeps.id, pkg('B', [pkg('Missing')], 'different'))],
+                providers: [spyUrl],
+            });
+            expect(res.status).toBe(400);
+            expect(providerHits).toBe(0);
+
+            // Sanity check: with the right bytes it does get as far as resolution and asks the provider.
+            const res2 = await post(`${url}/packages`, {
+                packages: [entry(needsDeps.id, needsDeps)],
+                providers: [spyUrl],
+            });
+            expect(res2.status).toBe(422);
+            expect(providerHits).toBeGreaterThan(0);
+        });
+    });
+
     it('enforces the body size limit (413)', async () => {
         const { url } = await startServer({ maxBodyBytes: 100 });
+        const big = pkg('A', [], 'x'.repeat(500));
         const res = await post(`${url}/packages`, {
-            packages: [pkg('A', [], 'x'.repeat(500)).bytes.toString('base64')],
+            packages: [{ id: big.id, data: big.bytes.toString('base64') }],
         });
         expect(res.status).toBe(413);
     });

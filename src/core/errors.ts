@@ -12,6 +12,16 @@ export class InvalidIdError extends DpmError {}
 /** Bytes that claim to be a package are not a valid, canonically encoded package. */
 export class InvalidPackageError extends DpmError {}
 
+/** Package bytes do not hash to the ID they were claimed (or requested) to have. */
+export class IdMismatchError extends InvalidPackageError {
+    constructor(
+        public readonly expected: string,
+        public readonly actual: string,
+    ) {
+        super(`Package hash check failed: expected ${expected}, but the content hashes to ${actual}`);
+    }
+}
+
 /** A registry directory is missing or malformed, or a stored package is corrupt. */
 export class RegistryError extends DpmError {}
 

@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
-import { MissingDependencyError, PeerConflictError, Registry } from '../src/core';
+import http from 'http';
+import { AddressInfo } from 'net';
+import { describe, expect, it, onTestFinished } from 'vitest';
+import { MissingDependencyError, PeerConflictError, Registry, RemoteRegistry } from '../src/core';
 import { pull, push } from '../src/client';
 import { pkg, tmpDir } from './helpers';
 import { startServer } from './server-helpers';
@@ -122,5 +124,24 @@ describe('push', () => {
         await expect(push(local(), pkg('Nope').id, (await startServer()).remote)).rejects.toThrow(
             MissingDependencyError,
         );
+    });
+});
+
+describe('hash verification on fetch', () => {
+    it('refuses content from a remote that does not match the requested ID', async () => {
+        const real = pkg('A', [], 'real');
+        const fake = pkg('A', [], 'fake');
+        // A registry that answers every request with the same (wrong) bytes.
+        const server = http.createServer((_req, res) => {
+            res.writeHead(200, { 'content-type': 'application/octet-stream' }).end(fake.bytes);
+        });
+        await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+        onTestFinished(() => new Promise<void>((r) => server.close(() => r())));
+        const liar = new RemoteRegistry(`http://127.0.0.1:${(server.address() as AddressInfo).port}`);
+
+        await expect(liar.get(real.id)).rejects.toThrow(/hash check failed/);
+        const reg = local();
+        await expect(pull(reg, real.id, [liar])).rejects.toThrow(MissingDependencyError);
+        expect(await reg.list()).toEqual([]);
     });
 });

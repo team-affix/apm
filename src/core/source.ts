@@ -47,6 +47,8 @@ export async function fetchVerified(id: string, sources: readonly PackageSource[
         } catch {
             continue;
         }
+        // Hash verification: never trust a source to return what was asked for. A Package's id is
+        // always computed from its own bytes (the constructor is private), so this compares hashes.
         if (pkg?.id === id) return pkg;
     }
     return undefined;
