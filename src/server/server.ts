@@ -27,7 +27,7 @@ export interface ServerOptions {
 
 /**
  * The reference DPM server. Its acceptance policy is the protocol's minimum: a push is accepted if
- * every package passes the hash check and resolves. Servers with other policies build their own
+ * every package passes the hash check and belongs to a tree that resolves (see `ingest`). Servers with other policies build their own
  * handler from the parts in `./protocol` (this file is a worked example of doing that).
  */
 export function createHandler(options: ServerOptions): http.RequestListener {

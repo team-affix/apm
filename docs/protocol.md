@@ -38,6 +38,8 @@ Resolving a root (a package, or an unpacked project with a name and deps) yields
 5. A subtree's contents depend on the overrides above it. A package reached by paths with different overrides MUST be checked under each of them.
 6. Resolution fails if any dependency in the tree cannot be obtained.
 
+Because overrides are hierarchical, a package's meaning depends on the packages above it. A package that is valid inside one tree (where an ancestor overrides one of its dependencies) may not resolve on its own. Validity therefore belongs to a resolved tree, not to an ID by itself.
+
 ## 4. HTTP interface
 
 | Request | Success response |
@@ -67,7 +69,7 @@ A server:
 - MUST hash-verify every pushed package against its claimed ID **before doing anything else** with the push. One failure rejects the whole push with 400.
 - MUST only ever serve, under an ID, bytes that hash to that ID.
 - MUST treat a push as all-or-nothing: either every package in it is stored, or none is.
-- MAY reject any push for any reason, with 422. Acceptance policy is the server's own: the reference server accepts anything that resolves, a logic server also requires logical validity, and an operator may add size limits or allow-lists.
+- MAY reject any push for any reason, with 422. Acceptance policy is the server's own: the reference server accepts any batch whose packages all belong to trees that resolve, a logic server also requires logical validity, and an operator may add size limits or allow-lists.
 - MAY ignore `providers`, or limit how many it uses.
 - Is NOT required to hold the dependencies of the packages it stores.
 

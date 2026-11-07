@@ -49,6 +49,29 @@ describe('ingest (resolve → put)', () => {
         );
     });
 
+    it('accepts a deep package that only resolves under the overrides of a package above it', async () => {
+        const reg = fresh();
+        const c1 = pkg('C', [], 'gone');
+        const c2 = pkg('C', [], '2');
+        const x = pkg('X', [c1]);
+        const root = pkg('Root', [x, c2]);
+        const stored = await ingest(reg, [x, c2, root]);
+        expect(stored.map((p) => p.name).sort()).toEqual(['C', 'Root', 'X']);
+        expect(stored.at(-1)?.id).toBe(root.id);
+        expect(await reg.has([c1.id])).toEqual(new Set());
+    });
+
+    it('resolves a batch package on its own when nothing above it covers it', async () => {
+        const reg = fresh();
+        const c1 = pkg('C', [], 'gone');
+        const c2 = pkg('C', [], '2');
+        const x = pkg('X', [c1]);
+        const root = pkg('Root', [pkg('Y'), c2]);
+        // x is not in root's tree, so it must stand on its own, and it can't
+        await expect(ingest(reg, [x, c2, pkg('Y'), root])).rejects.toThrow(MissingDependencyError);
+        expect(await reg.list()).toEqual([]);
+    });
+
     it('skips packages that are already present', async () => {
         const reg = fresh();
         const a = pkg('A');

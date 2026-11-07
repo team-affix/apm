@@ -53,6 +53,19 @@ describe('pull', () => {
         );
     });
 
+    it("pulls a tree that only resolves under its root's overrides", async () => {
+        const server = await startServer();
+        const c1 = pkg('C', [], 'gone');
+        const c2 = pkg('C', [], '2');
+        const x = pkg('X', [c1]);
+        const root = pkg('Root', [x, c2]);
+        await server.remote.push([root, x, c2]);
+
+        const reg = local();
+        await pull(reg, root.id, [server.remote]);
+        expect(await reg.list()).toEqual([root.id, x.id, c2.id].sort());
+    });
+
     it('does nothing when everything is already local', async () => {
         const reg = local();
         const a = pkg('A');
@@ -87,25 +100,28 @@ describe('push', () => {
         expect((await push(reg, b.id, target.remote, [provider.remote])).stored).toEqual([b.id]);
     });
 
-    it('pushes an override-resolved tree that the server re-checks', async () => {
+    it("pushes a tree that only resolves under its root's overrides", async () => {
         const server = await startServer();
         const reg = local();
-        const c1 = pkg('C', [], '1');
+        const c1 = pkg('C', [], 'gone from every registry');
         const c2 = pkg('C', [], '2');
-        const x = pkg('X', [c1]);
+        const x = pkg('X', [c1]); // X alone would need c1, which nobody hosts
         const y = pkg('Y', [c2]);
-        for (const p of [c1, c2, x, y]) await reg.put(p);
-        const root = pkg('Root', [x, y, c2]); // root picks C = c2
-        await reg.put(root);
+        const root = pkg('Root', [x, y, c2]); // the root overrides C with c2
+        for (const p of [c2, x, y, root]) await reg.put(p);
 
-        // X still needs c1 for its own resolution, which the root's tree doesn't contain.
-        // The server can't find it, so the push fails until a provider has it.
-        await expect(push(reg, root.id, server.remote)).rejects.toMatchObject({ status: 422 });
+        await push(reg, root.id, server.remote);
+        expect(await server.remote.has([root.id, x.id, y.id, c2.id, c1.id])).toEqual(
+            new Set([root.id, x.id, y.id, c2.id]),
+        );
+    });
 
-        const provider = await startServer();
-        await provider.remote.push([c1]);
-        await expect(push(reg, root.id, server.remote, [provider.remote])).resolves.toBeDefined();
-        expect(await server.remote.has([root.id, x.id, y.id, c2.id])).toEqual(new Set([root.id, x.id, y.id, c2.id]));
+    it('still requires a package pushed on its own to resolve on its own', async () => {
+        const server = await startServer();
+        const reg = local();
+        const x = pkg('X', [pkg('C', [], 'gone')]);
+        await reg.put(x);
+        await expect(push(reg, x.id, server.remote)).rejects.toThrow(/No provider found/);
     });
 
     it('refuses to push something with an unresolved conflict', async () => {

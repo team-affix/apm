@@ -4,6 +4,7 @@ import {
     assertValidName,
     CachingSource,
     DpmError,
+    dependenciesFirst,
     ingest,
     nameOf,
     Package,
@@ -106,12 +107,15 @@ export class Project {
 
     /**
      * Resolves the dependency tree and writes every package into `deps/<name>/`.
-     * Packages found only in `remotes` are first ingested into the local registry, so it keeps a copy.
+     * Packages found only in `remotes` are stored in the local registry, so it keeps a copy. They were
+     * hash-checked on fetch and are part of the tree that just resolved, which is all a local registry requires.
      */
     async install(registry: Registry, remotes: readonly PackageSource[] = []): Promise<Resolution> {
         const remote = new CachingSource(remotes);
         const resolution = await this.resolve([registry, remote]);
-        await ingest(registry, resolution.packages, [remote]);
+        // Not ingest(): these packages resolve under *this project's* overrides, which a package-by-package
+        // check would not see. The project isn't a package, so it can't be the top of an ingest batch.
+        for (const pkg of dependenciesFirst(resolution.packages)) await registry.put(pkg);
 
         fs.rmSync(this.depsDir, { recursive: true, force: true });
         fs.mkdirSync(this.depsDir, { recursive: true });

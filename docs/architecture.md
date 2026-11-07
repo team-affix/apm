@@ -29,7 +29,7 @@ Validity belongs to a resolved project tree, not to a stored package (overrides 
 | `Registry` | A plain on-disk store: `<root>/packages/<id>`. Atomic `put` (a no-op if already present), and `get` re-checks the hash. No policy and no knowledge of dependencies. |
 | `PackageSource`, `MemorySource`, `CachingSource`, `fetchVerified` | Anywhere packages can come from, in priority order, with every result hash-checked |
 | `resolve`, `formatTree` | The resolution rules |
-| `ingest`, `dependenciesFirst` | The reference admission sequence (resolve every package in the batch, then store them all, or none). A convenience, not a contract. |
+| `ingest`, `dependenciesFirst` | The reference admission sequence: every package in the batch must belong to a tree that resolves (the batch's top-level packages are resolved first, overrides included), then all are stored, or none. A convenience, not a contract. |
 | `RemoteRegistry` | Protocol client: `health`, `list`, `has`, `get`, `push`. Also usable as a `PackageSource`. |
 | `packDirectory`, `unpackToDirectory` | Deterministic directory ↔ payload conversion, and safe extraction of untrusted payloads |
 
@@ -43,7 +43,7 @@ Validity belongs to a resolved project tree, not to a stored package (overrides 
 
 ## Reference implementations
 
-**`dpm-server`** accepts a push if every package passes the hash check and resolves, looking dependencies up in its own registry, the pushed batch and the given providers (`ingest`). It doesn't store what it fetched from providers. Options: `maxBodyBytes` (default 64 MiB), `allowProviders` (default true; `DPM_ALLOW_PROVIDERS=0` turns it off) and `maxProviders` (default 16). Turn providers off if you don't want the server making outbound requests to URLs chosen by pushers.
+**`dpm-server`** accepts a push if every package passes the hash check and belongs to a tree that resolves (a package deep in a pushed tree only needs to resolve under the overrides above it), looking dependencies up in its own registry, the pushed batch and the given providers (`ingest`). It doesn't store what it fetched from providers. Options: `maxBodyBytes` (default 64 MiB), `allowProviders` (default true; `DPM_ALLOW_PROVIDERS=0` turns it off) and `maxProviders` (default 16). Turn providers off if you don't want the server making outbound requests to URLs chosen by pushers.
 
 **`dpm`** keeps its state in `~/.dpm/client` (`ClientHome`): one local registry for all content.
 

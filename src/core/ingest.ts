@@ -4,7 +4,8 @@ import { resolve } from './resolver';
 import { CachingSource, MemorySource, PackageSource } from './source';
 
 /**
- * The reference admission sequence: every package in `batch` must resolve, then all of them are stored.
+ * The reference admission sequence: every package in `batch` must belong to a dependency tree that
+ * resolves, then all of them are stored.
  *
  * Packages arrive here already hash-verified: a `Package` can only be obtained by decoding bytes
  * (see `Package.decodeAs`), so its ID is always the hash of its content.
@@ -13,8 +14,13 @@ import { CachingSource, MemorySource, PackageSource } from './source';
  * found in `sources` is used for resolution but NOT stored: a registry is not required to hold the
  * closure of what it stores.
  *
- * All-or-nothing: if any package fails to resolve, nothing is stored. Returns the newly stored
- * packages, dependencies first.
+ * Overrides are hierarchical, so a package deep in a pushed tree may only resolve under the overrides
+ * of the packages above it (its own dependency on an overridden package may be unavailable anywhere).
+ * So the batch's top-level packages are resolved first, and every package inside one of their trees
+ * is accepted as part of it. Any package not inside another one's tree must resolve on its own.
+ *
+ * All-or-nothing: if any tree fails to resolve, nothing is stored. Returns the newly stored packages,
+ * dependencies first.
  *
  * This is a convenience, not a contract. A server or client with its own acceptance policy (e.g. a
  * logic validator) composes `resolve` and `Registry.put` in whatever order it needs.
@@ -29,9 +35,16 @@ export async function ingest(
     if (candidates.length === 0) return [];
 
     const lookup = [registry, new MemorySource(batch, 'batch'), new CachingSource(sources)];
-    for (const pkg of candidates) await resolve(pkg, lookup);
-
     const ordered = dependenciesFirst(candidates);
+    const covered = new Set<string>();
+    // Dependents first, so each top-level package is resolved before anything inside its tree.
+    for (const pkg of [...ordered].reverse()) {
+        if (covered.has(pkg.id)) continue;
+        const resolution = await resolve(pkg, lookup);
+        covered.add(pkg.id);
+        for (const dep of resolution.packages) covered.add(dep.id);
+    }
+
     for (const pkg of ordered) await registry.put(pkg);
     return ordered;
 }

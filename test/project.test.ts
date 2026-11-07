@@ -71,6 +71,21 @@ describe('Project', () => {
         expect(readTree(project.depsDir)).toEqual({ 'Base/axioms.txt': 'A1', 'Mid/thm.txt': 'T1' });
     });
 
+    it('installs a tree whose overridden packages exist nowhere', async () => {
+        const reg = Registry.openOrCreate(tmpDir());
+        const gone = Package.create('C', [], Buffer.from('never published'));
+        const c2 = await publish(reg, 'C', { 'v.txt': '2' });
+        const x = Package.create('X', [gone.id], Buffer.alloc(0));
+        await reg.put(x); // X was published elsewhere against a C that has since vanished
+
+        const project = Project.init(tmpDir(), 'App');
+        project.add(x.id);
+        project.add(c2.id); // the project overrides C
+        const resolution = await project.install(reg);
+        expect(resolution.packages.map((p) => p.id).sort()).toEqual([c2.id, x.id].sort());
+        expect(readTree(project.depsDir)).toEqual({ 'C/v.txt': '2' });
+    });
+
     it('reinstalls cleanly, dropping packages no longer in the tree', async () => {
         const reg = Registry.openOrCreate(tmpDir());
         const a = await publish(reg, 'A', { f: '1' });
