@@ -17,7 +17,7 @@ A package is a **name**, a set of **direct dependency IDs**, and an opaque **pay
 
 - Encoding is canonical: dependency IDs MUST be unique and sorted by their UTF-8 bytes. Decoders MUST reject any bytes that are not the canonical encoding of their own contents.
 - A name MUST be non-empty and at most 200 bytes, MUST NOT be `.` or `..`, and MUST NOT contain whitespace, control characters, or any of `@ / \ : * ? " < > |`.
-- The payload has no meaning at the protocol level. Applications (e.g. DLPM) give it one.
+- The payload has no meaning at the protocol level. The content's own tools (e.g. a logic checker or a compiler) give it one.
 
 ## 2. Identity
 
@@ -67,7 +67,7 @@ A server:
 - MUST hash-verify every pushed package against its claimed ID **before doing anything else** with the push. One failure rejects the whole push with 400.
 - MUST only ever serve, under an ID, bytes that hash to that ID.
 - MUST treat a push as all-or-nothing: either every package in it is stored, or none is.
-- MAY reject any push for any reason, with 422. Acceptance policy is the server's own: the reference server accepts anything that resolves, a logic server (DLPM) also requires logical validity, and an operator may add size limits or allow-lists.
+- MAY reject any push for any reason, with 422. Acceptance policy is the server's own: the reference server accepts anything that resolves, a logic server also requires logical validity, and an operator may add size limits or allow-lists.
 - MAY ignore `providers`, or limit how many it uses.
 - Is NOT required to hold the dependencies of the packages it stores.
 

@@ -6,7 +6,19 @@ This repository holds three things:
 2. **A library** of parts for building protocol clients and servers.
 3. **Reference implementations** built from those parts: the `dpm` CLI and `dpm-server`.
 
-Other applications (e.g. DLPM) are separate clients and servers built from the same library and speaking the same protocol. There are no hooks into the reference implementations. If an application needs different behaviour, it writes its own handler or command, the way GitHub runs its own push server while still speaking Git's protocol.
+There is one client, `dpm`, for every kind of content and every server. Servers with a different acceptance policy (e.g. a logic server that only accepts logically valid packages) are written from the same library and speak the same protocol. There are no hooks into the reference implementations. If a server needs different behaviour, it writes its own handler, the way GitHub runs its own push server while still speaking Git's protocol.
+
+## Validation happens outside DPM
+
+DPM moves bytes and guarantees they are exactly what was asked for (every fetch is hash-checked). It never judges content, and it never runs commands. Checking content is a separate, second step done by the content's own tool:
+
+```bash
+dpm add Kant@<sha256>      # depend on it
+dpm install                # fetch (hash-checked), resolve, unpack into deps/
+logic-check .              # your language's checker reads MyProject/ + deps/
+```
+
+Validity belongs to a resolved project tree, not to a stored package (overrides change what a dependency means), so a project is the natural unit to check. A local registry is just a cache of hash-verified bytes and can hold any kind of content.
 
 ## Library (`@team-affix/dpm`)
 
@@ -33,7 +45,7 @@ Other applications (e.g. DLPM) are separate clients and servers built from the s
 
 **`dpm-server`** accepts a push if every package passes the hash check and resolves, looking dependencies up in its own registry, the pushed batch and the given providers (`ingest`). It doesn't store what it fetched from providers. Options: `maxBodyBytes` (default 64 MiB), `allowProviders` (default true; `DPM_ALLOW_PROVIDERS=0` turns it off) and `maxProviders` (default 16). Turn providers off if you don't want the server making outbound requests to URLs chosen by pushers.
 
-**`dpm`** keeps its state in `~/.dpm/client`. Another app, e.g. `dlpm`, keeps its own (`new ClientHome('~/.dlpm')`), so each has a separate local registry.
+**`dpm`** keeps its state in `~/.dpm/client` (`ClientHome`): one local registry for all content.
 
 ## Writing a server with a different policy
 

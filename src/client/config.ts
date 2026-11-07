@@ -6,8 +6,8 @@ import { DpmError, Registry, RemoteRegistry } from '../core';
 /**
  * A client's state directory: its local registry and its list of remotes.
  *
- * The directory belongs to the application, not to DPM. The `dpm` CLI uses `~/.dpm/client`; another
- * protocol client (e.g. `dlpm`) uses its own, so each app keeps a separate registry.
+ * The `dpm` CLI uses `~/.dpm/client`: one local registry for all content. The registry is a cache of
+ * hash-verified bytes. It never judges content; that's done by each content type's own tools.
  *
  *   <home>/registry/       local registry
  *   <home>/remotes.json    remote registries, in priority order

@@ -7,7 +7,7 @@ DPM stores immutable, content-addressed packages across any number of independen
 - Dependencies are resolved by name with **overrides** and **peer-conflict** detection, across whatever registries you point at.
 - Registries are dumb stores, and the resolver is separate.
 
-**DPM is a protocol** ([spec](docs/protocol.md)), like Git: every client and server shares the format, the identity rule, the resolution rules and the HTTP interface, but each server sets its own acceptance policy. This repository contains the spec, a library for building clients and servers, and reference implementations (`dpm`, `dpm-server`). DLPM, the logic layer, is a separate client and server built from the same library.
+**DPM is a protocol** ([spec](docs/protocol.md)), like Git: every server shares the format, the identity rule, the resolution rules and the HTTP interface, but each server sets its own acceptance policy. There is **one client, `dpm`**, for every kind of content and every server. Validating content (checking logic, compiling code) is the job of the content's own tools, run on a project after `dpm install`. This repository contains the spec, a library for building servers (and other tools), and the reference `dpm` and `dpm-server`.
 
 DPM is the storage layer of a logic platform for public discourse (see [docs/philosophy](docs/philosophy/index.md)), but it knows nothing about logic and works for any kind of content. It replaces the earlier Agda-specific APM.
 

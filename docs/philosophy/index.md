@@ -5,7 +5,7 @@ DPM is the storage and distribution layer of a logic platform for public discour
 The platform is layered:
 
 - **DPM** (this repository): content-addressed packages stored across many independent registries. It knows nothing about logic.
-- **A logic layer** (e.g. DLPM, the decentralized logic package manager): DPM plus one extra step, logical validation, between resolving a package and storing it.
+- **The logic language's own tools**: a checker that validates a project (its source plus its installed `deps/`), and logic servers, which are DPM servers whose policy only accepts packages that check. Users only ever have one package manager: `dpm`.
 
 Pages:
 

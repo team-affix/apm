@@ -14,7 +14,7 @@ import {
  *
  * DPM is a protocol: every server must speak these endpoints and check hashes, but what a server
  * *accepts* is its own policy. The reference server (`createServer`) is one assembly of these parts.
- * A server with a different policy (e.g. DLPM, which also checks logic) assembles its own.
+ * A server with a different policy (e.g. a logic server, which also runs the logic checker) assembles its own.
  */
 
 /** An error that maps directly to an HTTP status. */
