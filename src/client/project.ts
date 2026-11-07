@@ -111,7 +111,7 @@ export class Project {
     async install(registry: Registry, remotes: readonly PackageSource[] = []): Promise<Resolution> {
         const remote = new CachingSource(remotes);
         const resolution = await this.resolve([registry, remote]);
-        await ingest(registry, resolution.packages, { sources: [remote] });
+        await ingest(registry, resolution.packages, [remote]);
 
         fs.rmSync(this.depsDir, { recursive: true, force: true });
         fs.mkdirSync(this.depsDir, { recursive: true });
@@ -123,7 +123,7 @@ export class Project {
     async pack(registry: Registry, remotes: readonly PackageSource[] = []): Promise<Package> {
         if (!fs.existsSync(this.sourceDir)) throw new DpmError(`Missing source directory ${this.sourceDir}`);
         const pkg = Package.create(this.name, this.deps, await packDirectory(this.sourceDir));
-        await ingest(registry, [pkg], { sources: [new CachingSource(remotes)] });
+        await ingest(registry, [pkg], [new CachingSource(remotes)]);
         return pkg;
     }
 }

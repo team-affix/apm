@@ -9,24 +9,18 @@ import {
     Registry,
     RemoteRegistry,
     resolve,
-    Verifier,
 } from '../core';
 
 /**
  * Pulls a package and its resolved dependency tree into the local registry.
  * Each package comes from the first remote that has it (and is checked against its ID).
  */
-export async function pull(
-    registry: Registry,
-    id: string,
-    remotes: readonly PackageSource[],
-    verify?: Verifier,
-): Promise<Package[]> {
+export async function pull(registry: Registry, id: string, remotes: readonly PackageSource[]): Promise<Package[]> {
     const remote = new CachingSource(remotes);
     const root = await fetchVerified(id, [registry, remote]);
     if (!root) throw new MissingDependencyError([{ id, requiredBy: '(pull)' }]);
     const resolution = await resolve(root, [registry, remote]);
-    return ingest(registry, [...resolution.packages, root], { sources: [remote], verify });
+    return ingest(registry, [...resolution.packages, root], [remote]);
 }
 
 /**

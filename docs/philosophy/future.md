@@ -2,12 +2,9 @@
 
 ## DLPM: the logic layer
 
-A decentralized logic package manager built on DPM, adding one step between resolve and put: logical validation of the resolved tree. Because DPM already resolves the full tree (with overrides) before anything is stored, DLPM only needs to:
+A decentralized logic package manager: its own client and server, speaking the DPM protocol and built from the DPM library. Its server's push sequence is: hash check → resolve → **logical validation of the resolved trees** → store. To validate, it unpacks the resolved packages (`unpackToDirectory`), runs the logic kernel, and rejects with 422 on failure.
 
-1. unpack the resolved packages to disk (`unpackToDirectory`), and
-2. check them with the logic kernel, rejecting the push if the check fails.
-
-DPM exposes this as a `verify` function on `ingest()` and `createServer()`.
+Because the protocol is shared, a `dlpm` client can push to a plain DPM server (which stores without checking logic), and a `dpm` client can push to a DLPM server (which accepts only what checks).
 
 Notes for the logic layer:
 

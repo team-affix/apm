@@ -5,7 +5,9 @@ DPM stores immutable, content-addressed packages across any number of independen
 - A package is a **name**, a set of **direct dependency IDs**, and an **opaque payload**.
 - Its ID is `name@sha256(content)`. The ID says *what* a package is, never *where* it lives, so any registry with the bytes is a valid source, and every fetch is checked against the ID.
 - Dependencies are resolved by name with **overrides** and **peer-conflict** detection, across whatever registries you point at.
-- Registries are dumb stores. The resolver is separate. Anything else (e.g. logic validation) is added as one `verify` step between resolve and put.
+- Registries are dumb stores, and the resolver is separate.
+
+**DPM is a protocol** ([spec](docs/protocol.md)), like Git: every client and server shares the format, the identity rule, the resolution rules and the HTTP interface, but each server sets its own acceptance policy. This repository contains the spec, a library for building clients and servers, and reference implementations (`dpm`, `dpm-server`). DLPM, the logic layer, is a separate client and server built from the same library.
 
 DPM is the storage layer of a logic platform for public discourse (see [docs/philosophy](docs/philosophy/index.md)), but it knows nothing about logic and works for any kind of content. It replaces the earlier Agda-specific APM.
 
@@ -39,7 +41,7 @@ dpm add $BASE
 dpm install                 # writes deps/Base/axioms.txt
 ```
 
-See the [CLI reference](docs/cli.md) and the [architecture](docs/architecture.md) (package format, resolution rules, HTTP protocol, building a layer on top).
+See the [protocol spec](docs/protocol.md), the [architecture](docs/architecture.md) (library, reference implementations, writing your own server) and the [CLI reference](docs/cli.md).
 
 ## Library
 
@@ -61,9 +63,9 @@ npm run build
 Layout:
 
 ```
-src/core     package format, registry, resolver, ingest, HTTP client, archive helpers
-src/server   HTTP server (dpm-server)
-src/client   projects, push/pull, CLI (dpm)
+src/core     package format, registry, resolver, ingest, protocol client, archive helpers
+src/server   protocol server parts + reference server (dpm-server)
+src/client   projects, push/pull, client home + reference CLI (dpm)
 test/        unit tests and end-to-end tests against real servers
-docs/        architecture, CLI and philosophy
+docs/        protocol spec, architecture, CLI and philosophy
 ```

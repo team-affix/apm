@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { CachingSource, DpmError, formatTree, MissingDependencyError, parseId, resolve } from '../core';
-import { localRegistry, Remotes } from './config';
+import { ClientHome } from './config';
 import { Project } from './project';
 import { pull, push } from './transfer';
+
+const home = ClientHome.dpm();
+const localRegistry = () => home.registry();
 
 const program = new Command()
     .name('dpm')
@@ -25,7 +28,7 @@ function run<A extends unknown[]>(action: (...args: A) => Promise<void> | void) 
 /** Remotes used as dependency sources: the named ones, or all configured remotes. */
 function sourceRemotes(names: string[] | undefined, offline = false) {
     if (offline) return [];
-    const remotes = Remotes.load();
+    const remotes = home.remotes();
     return names && names.length > 0 ? names.map((n) => remotes.get(n)) : remotes.all();
 }
 
@@ -100,7 +103,7 @@ program
     .option('-r, --remote <name>', 'query a remote instead of the local registry')
     .action(
         run(async (ids: string[], opts: { remote?: string }) => {
-            const source = opts.remote ? Remotes.load().get(opts.remote) : localRegistry();
+            const source = opts.remote ? home.remotes().get(opts.remote) : localRegistry();
             const found = ids.length > 0 ? [...(await source.has(ids))] : await source.list();
             if (found.length > 0) console.log(found.join('\n'));
         }),
@@ -160,7 +163,7 @@ program
     .option('-p, --provider <names...>', 'remotes the server may fetch missing dependencies from (default: all others)')
     .action(
         run(async (id: string, remoteName: string, opts: { provider?: string[] }) => {
-            const remotes = Remotes.load();
+            const remotes = home.remotes();
             const providers = opts.provider ? opts.provider.map((n) => remotes.get(n)) : remotes.all([remoteName]);
             const result = await push(localRegistry(), id, remotes.get(remoteName), providers);
             result.stored.forEach((s) => console.log(`Pushed ${s}`));
@@ -178,7 +181,7 @@ remote
     .argument('<url>')
     .action(
         run((name: string, url: string) => {
-            const remotes = Remotes.load();
+            const remotes = home.remotes();
             remotes.add(name, url);
             remotes.save();
         }),
@@ -189,7 +192,7 @@ remote
     .argument('<name>')
     .action(
         run((name: string) => {
-            const remotes = Remotes.load();
+            const remotes = home.remotes();
             remotes.remove(name);
             remotes.save();
         }),
@@ -197,7 +200,8 @@ remote
 
 remote.command('ls').action(
     run(() =>
-        Remotes.load()
+        home
+            .remotes()
             .list()
             .forEach((r) => console.log(`${r.name}\t${r.url}`)),
     ),
@@ -209,7 +213,7 @@ remote
     .argument('<name>')
     .action(
         run(async (name: string) => {
-            await Remotes.load().get(name).health();
+            await home.remotes().get(name).health();
             console.log('ok');
         }),
     );

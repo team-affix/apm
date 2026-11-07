@@ -1,106 +1,60 @@
 # Architecture
 
-DPM has three parts with strictly separate jobs:
+This repository holds three things:
 
-```
-  push / pull / pack / install
-              │
-              ▼
-┌──────────────────────────────┐
-│ 0. hash check  ── decodeAs() │  bytes must hash to the claimed / requested ID
-│ ingest()                     │  the only way packages should enter a registry
-│   1. resolve()   ── Resolver │  full tree, overrides, peer conflicts, missing deps
-│   2. verify()?   ── optional │  supplied by a layer above (e.g. logic validation)
-│   3. put()       ── Registry │  dumb store: bytes in, bytes out, keyed by ID
-└──────────────────────────────┘
-```
+1. **The protocol** ([protocol.md](protocol.md)). This is what DPM *is*.
+2. **A library** of parts for building protocol clients and servers.
+3. **Reference implementations** built from those parts: the `dpm` CLI and `dpm-server`.
 
-The client and server share all of this (`src/core`). The server is an HTTP front end over a `Registry`. The client CLI keeps its own local `Registry` (`~/.dpm/client/registry` by default). A client and a server can share one registry directory if you want.
+Other applications (e.g. DLPM) are separate clients and servers built from the same library and speaking the same protocol. There are no hooks into the reference implementations. If an application needs different behaviour, it writes its own handler or command, the way GitHub runs its own push server while still speaking Git's protocol.
 
-## Package format
+## Library (`@team-affix/dpm`)
 
-All integers are u32 little-endian.
-
-| Field | Encoding |
+| Part | What it does |
 |---|---|
-| magic | `DPM1` (4 bytes) |
-| name | u32 length + UTF-8 |
-| deps | u32 count, then each ID as u32 length + UTF-8, unique and sorted by UTF-8 bytes |
-| payload | the rest of the bytes, opaque |
+| `Package` | Encode/decode the package format. `Package.decodeAs(bytes, id)` is the mandatory hash check. A `Package` can only be obtained by decoding or creating one, so its `id` is always the hash of its bytes. |
+| `parseId`, `nameOf`, `assertValidName` | Identity rules |
+| `Registry` | A plain on-disk store: `<root>/packages/<id>`. Atomic `put` (a no-op if already present), and `get` re-checks the hash. No policy and no knowledge of dependencies. |
+| `PackageSource`, `MemorySource`, `CachingSource`, `fetchVerified` | Anywhere packages can come from, in priority order, with every result hash-checked |
+| `resolve`, `formatTree` | The resolution rules |
+| `ingest`, `dependenciesFirst` | The reference admission sequence (resolve every package in the batch, then store them all, or none). A convenience, not a contract. |
+| `RemoteRegistry` | Protocol client: `health`, `list`, `has`, `get`, `push`. Also usable as a `PackageSource`. |
+| `packDirectory`, `unpackToDirectory` | Deterministic directory ↔ payload conversion, and safe extraction of untrusted payloads |
 
-- **ID** = `<name>@<lowercase hex sha256 of the whole encoding>`.
-- **Names** must be non-empty, at most 200 bytes, not `.`/`..`, and contain no whitespace, control characters or `@ / \ : * ? " < > |`. Names become directory names.
-- **Canonical encoding** is enforced: `Package.decode` rejects any bytes that aren't the canonical encoding of their own contents.
+### Server parts (`@team-affix/dpm/server`)
 
-## Hash verification
+`matchRoute`, `readJson`, `parseHasRequest`, `parsePushRequest` (which performs the hash check), `sendJson`, `sendPackage`, `sendError`, `statusFor`, `handle`, `HttpError`.
 
-The first check on any bytes, before anything else is done with them. `Package.decodeAs(bytes, id)` decodes and throws `IdMismatchError` unless the content hashes to `id`. It runs everywhere bytes cross a trust boundary:
+### Client parts (`@team-affix/dpm/client`)
 
-- **Push:** each pushed package carries its claimed ID, and the server checks every hash before resolving anything or contacting any provider. One mismatch rejects the whole push with 400.
-- **Fetch from a remote:** the bytes must hash to the ID that was requested.
-- **Read from disk:** the local registry re-checks each file against its filename, which catches corruption or tampering.
-- **Any source in resolution:** a source returning a different package than requested is skipped, and the next source is tried.
+`Project` (manifest, `install`, `pack`), `pull`, `push`, and `ClientHome` (an app's state directory: its local registry and remotes).
 
-## Registry
+## Reference implementations
 
-A directory: `<root>/packages/<id>`, where each file holds a package's bytes.
+**`dpm-server`** accepts a push if every package passes the hash check and resolves, looking dependencies up in its own registry, the pushed batch and the given providers (`ingest`). It doesn't store what it fetched from providers. Options: `maxBodyBytes` (default 64 MiB), `allowProviders` (default true; `DPM_ALLOW_PROVIDERS=0` turns it off) and `maxProviders` (default 16). Turn providers off if you don't want the server making outbound requests to URLs chosen by pushers.
 
-- `put(pkg)`: writes atomically (temp file + rename). Storing a package that's already present does nothing.
-- `get(id)`: re-checks that the bytes hash to `id`, and reports corruption.
-- `has(ids)`, `list()`.
+**`dpm`** keeps its state in `~/.dpm/client`. Another app, e.g. `dlpm`, keeps its own (`new ClientHome('~/.dlpm')`), so each has a separate local registry.
 
-It has no knowledge of dependencies, validity or policy.
+## Writing a server with a different policy
 
-## Resolution rules
-
-`resolve(root, sources)` walks the dependency graph and fetches each package from the first source that returns bytes matching the ID.
-
-1. **One package per name** in a resolved tree.
-2. **Overrides.** A package's direct dependency named N replaces every N deeper in that package's subtree. The root also occupies its own name.
-3. **Peer conflicts.** Two different N's meeting without a common ancestor overriding N is an error. The fix is to depend directly on the N you want from a common ancestor (usually the root).
-4. **Overridden dependencies are never fetched.** The name is in the ID, so a resolver knows a dependency is overridden without downloading it. It doesn't matter whether anyone still hosts it.
-5. **All missing dependencies are reported together**, each with the package that required it.
-
-Subtrees are explored once per *override context*. A package reached by two paths with different overrides above it is checked under both, so whether a conflict is found never depends on traversal order.
-
-The result lists every package in the resolved tree, dependencies before dependents.
-
-## Ingest
-
-`ingest(registry, batch, { sources, verify })`:
-
-- Every package in the batch must resolve, using the registry, then the rest of the batch, then `sources`.
-- Dependencies found in `sources` are used for resolution but **not stored**. A registry need not hold the full closure of what it stores.
-- `verify(pkg, resolution)` runs after resolution and before anything is stored.
-- All-or-nothing: if any package fails, nothing is stored.
-
-## HTTP protocol
-
-| Request | Response |
-|---|---|
-| `GET /health` | `{ "status": "ok" }` |
-| `GET /packages` | `{ "ids": [...] }` |
-| `GET /packages/:id` | raw package bytes, or 404 |
-| `POST /packages/has` `{ "ids": [...] }` | `{ "ids": [...] }` (the subset present) |
-| `POST /packages` `{ "packages": [{ "id", "data" }...], "providers": [url...] }` | `{ "ids": [...], "stored": [...] }` |
-
-`POST /packages` first checks every package's hash against its claimed `id` (`data` is the base64 package bytes), then runs `ingest` with the provider URLs as remote sources. Errors are `{ "error": "..." }` with status 400 (malformed, or a hash mismatch), 413 (too large), 422 (doesn't resolve, or rejected by `verify`) or 404.
-
-Server options: `verify`, `maxBodyBytes` (default 64 MiB), `allowProviders` (default true; `DPM_ALLOW_PROVIDERS=0` turns it off) and `maxProviders` (default 16). Fetching from providers means the server makes outbound requests to URLs chosen by whoever pushes. Turn providers off if that isn't acceptable for your deployment.
-
-## Building a layer on top (e.g. DLPM)
+`src/server/server.ts` is the reference assembly, about 60 lines. A server with its own policy writes its own handler from the same parts and controls the whole push sequence:
 
 ```ts
-import { Registry, unpackToDirectory } from '@team-affix/dpm';
-import { createServer } from '@team-affix/dpm/server';
+import http from 'http';
+import { Registry, RemoteRegistry, resolve } from '@team-affix/dpm';
+import { handle, matchRoute, parsePushRequest, readJson, sendJson /* ... */ } from '@team-affix/dpm/server';
 
-const server = createServer({
-    registry: Registry.openOrCreate('/srv/dlpm'),
-    async verify(pkg, resolution) {
-        // unpack resolution.packages (and pkg) to a temp dir, run the logic checker, throw to reject
-    },
-});
-server.listen(3000);
+http.createServer(handle(async (req, res) => {
+    const route = matchRoute(req);
+    if (route?.kind === 'push') {
+        const { packages, providers } = parsePushRequest(await readJson(req, LIMIT)); // 1. hash check
+        const resolutions = await Promise.all(packages.map((p) => resolve(p, sources))); // 2. resolve
+        await checkLogic(packages, resolutions);           // 3. this server's policy (throw RejectedError → 422)
+        for (const p of packages) await registry.put(p);   // 4. store
+        return sendJson(res, 200, { ids, stored });
+    }
+    // ...the other routes, usually identical to the reference server
+}));
 ```
 
-The same `verify` can be passed to `ingest()` and to `pull()` on the client, so clients check what they download, not just what servers accept.
+`test/custom-server.test.ts` contains a complete working example. It checks a whole batch at once, rejects by policy with 422, and works with the standard client and the reference server.

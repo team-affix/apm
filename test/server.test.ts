@@ -96,19 +96,6 @@ describe('server', () => {
         await expect(remote.push([pkg('A')], ['file:///etc/passwd'])).rejects.toMatchObject({ status: 400 });
     });
 
-    it('runs a configured verifier and rejects with 422', async () => {
-        const { remote, registry } = await startServer({
-            verify: (p: Package) => {
-                if (p.payload.toString().includes('contradiction')) throw new Error('derives ⊥');
-            },
-        });
-        await remote.push([pkg('Good', [], 'fine')]);
-        const err = await remote.push([pkg('Bad', [], 'a contradiction')]).catch((e) => e);
-        expect(err).toMatchObject({ status: 422 });
-        expect(err.message).toMatch(/derives ⊥/);
-        expect((await registry.list()).map((id) => id.split('@')[0])).toEqual(['Good']);
-    });
-
     describe('rejects malformed requests with 400', () => {
         it.each([
             ['invalid JSON', '{'],

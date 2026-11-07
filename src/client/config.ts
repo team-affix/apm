@@ -3,14 +3,31 @@ import os from 'os';
 import path from 'path';
 import { DpmError, Registry, RemoteRegistry } from '../core';
 
-/** Client state directory: `$DPM_HOME`, or `~/.dpm/client`. */
-export function clientHome(): string {
-    return process.env.DPM_HOME ?? path.join(os.homedir(), '.dpm', 'client');
-}
+/**
+ * A client's state directory: its local registry and its list of remotes.
+ *
+ * The directory belongs to the application, not to DPM. The `dpm` CLI uses `~/.dpm/client`; another
+ * protocol client (e.g. `dlpm`) uses its own, so each app keeps a separate registry.
+ *
+ *   <home>/registry/       local registry
+ *   <home>/remotes.json    remote registries, in priority order
+ */
+export class ClientHome {
+    constructor(public readonly dir: string) {}
 
-/** The client's local registry: `$DPM_REGISTRY`, or `<home>/registry`. */
-export function localRegistry(): Registry {
-    return Registry.openOrCreate(process.env.DPM_REGISTRY ?? path.join(clientHome(), 'registry'));
+    /** The `dpm` CLI's home: `$DPM_HOME`, or `~/.dpm/client`. */
+    static dpm(): ClientHome {
+        return new ClientHome(process.env.DPM_HOME ?? path.join(os.homedir(), '.dpm', 'client'));
+    }
+
+    /** The local registry, created on first use. */
+    registry(): Registry {
+        return Registry.openOrCreate(path.join(this.dir, 'registry'));
+    }
+
+    remotes(): Remotes {
+        return Remotes.load(path.join(this.dir, 'remotes.json'));
+    }
 }
 
 export interface Remote {
@@ -18,14 +35,14 @@ export interface Remote {
     url: string;
 }
 
-/** The configured remote registries, in priority order (stored in `<home>/remotes.json`). */
+/** Configured remote registries, in priority order. */
 export class Remotes {
     private constructor(
         private readonly file: string,
         private readonly entries: Remote[],
     ) {}
 
-    static load(file = path.join(clientHome(), 'remotes.json')): Remotes {
+    static load(file: string): Remotes {
         if (!fs.existsSync(file)) return new Remotes(file, []);
         const parsed = JSON.parse(fs.readFileSync(file, 'utf8')) as unknown;
         if (!Array.isArray(parsed)) throw new DpmError(`${file} must contain a JSON array of { name, url }`);
