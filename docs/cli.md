@@ -1,6 +1,6 @@
 # CLI reference
 
-This is the reference client. State lives in `~/.dpm/client` (override with `DPM_HOME`): the local registry is `<home>/registry`, and remotes are in `<home>/remotes.json`, where their order is the lookup priority. Other protocol clients (e.g. `dlpm`) keep their own state directory and registry.
+`dpm` is the one client for every server and every kind of content. State lives in `~/.dpm/client` (override with `DPM_HOME`): the local registry is `<home>/registry`, and remotes are in `<home>/remotes.json`, where their order is the lookup priority. One local registry holds every kind of content.
 
 ## Projects
 
