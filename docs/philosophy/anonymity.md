@@ -1,6 +1,6 @@
 # Anonymity
 
-APM does not require identity to publish. This serves multiple aims and shapes the playing field:
+DPM does not require identity to publish. This serves multiple aims and shapes the playing field:
 
 - Equal footing: no built‑in moderation, reputation, karma, or rankings that privilege speakers
 - Protect publishers from coercion or retaliation by decoupling content from identity

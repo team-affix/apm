@@ -1,45 +1,6 @@
-*.agdai
-.vscode
-frontend/revival/.vscode
-*.zip
+node_modules/
+dist/
+coverage/
 *.tgz
 *.tsbuildinfo
-
-####################################
-# TERRAFORM SECTION
-####################################
-
-# Terraform state files
-*.tfstate
-*.tfstate.backup
-_*.tf
-
-# Crash log (if Terraform crashes)
-crash.log
-
-# .terraform directory (plugin binaries, module caches, etc.)
-.terraform/
-
-# Sensitive variable override files
-*.tfvars
-*.tfvars.json
-**/.terragrunt-cache/
-
-# Plan output (optional, can contain sensitive info)
-*.tfplan
-
-####################################
-####################################
-
-
-####################################
-# LAMBDA SECTION
-####################################
-
-**/node_modules/
-**/dist/
-**/out.json
-
-####################################
-####################################
-
+.vscode
