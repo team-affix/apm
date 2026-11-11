@@ -13,11 +13,11 @@ DPM is the storage layer of a logic platform for public discourse (see [docs/phi
 
 ## Install
 
-```bash
-npm i -g @team-affix/dpm   # provides `dpm` and `dpm-server`
-```
+Requires Node.js 20+. Install the npm package from the [latest release](https://github.com/team-affix/apm/releases); it provides `dpm` and `dpm-server`:
 
-Requires Node.js 20+.
+```bash
+npm install -g https://github.com/team-affix/apm/releases/download/v0.1.0/team-affix-dpm-0.1.0.tgz
+```
 
 ## Quickstart
 
@@ -51,6 +51,18 @@ import { createServer } from '@team-affix/dpm/server';
 import { pull, push, Project } from '@team-affix/dpm/client';
 ```
 
+## Releases
+
+Built files are never committed. They are attached to [GitHub Releases](https://github.com/team-affix/apm/releases) by CI:
+
+| File | What it is |
+|---|---|
+| `dpm-<version>.cjs` | the client as a single file: `node dpm-<version>.cjs install` |
+| `dpm-server-<version>.cjs` | the reference server as a single file: `node dpm-server-<version>.cjs` |
+| `team-affix-dpm-<version>.tgz` | the npm package (both commands and the library): `npm i -g ./team-affix-dpm-<version>.tgz` |
+
+To release: set a new version in `package.json` and merge to `main`. After the tests pass, CI tags the merge commit `v<version>` and publishes the release. Merges that don't change the version publish nothing. (Pushing a matching `v*` tag by hand also releases.)
+
 ## Development
 
 ```bash
@@ -58,6 +70,7 @@ npm ci
 npm test          # vitest
 npm run lint
 npm run build
+npm run bundle    # single-file dpm and dpm-server in release/
 ```
 
 Layout:

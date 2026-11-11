@@ -19,3 +19,65 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+
+  # Publishes a GitHub Release with dpm and dpm-server, after the tests pass. Runs when:
+  # - main is pushed (e.g. a PR is merged) and its package version has no release yet: tags that commit
+  #   v<version> and releases it. If that version is already released, it does nothing.
+  # - a v* tag is pushed by hand: releases that tag, if it matches the package version.
+  # Nothing built is committed to the repo.
+  release:
+    needs: [test]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Decide whether to release
+        id: decide
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            if [ "${GITHUB_REF_NAME#v}" != "$version" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME does not match the package version $version."
+              exit 1
+            fi
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          elif git ls-remote --exit-code --tags origin "refs/tags/v$version" > /dev/null; then
+            echo "v$version is already released; nothing to do. Bump the version to release."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "v$version has no release yet: releasing."
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build dpm and dpm-server as single files
+        if: steps.decide.outputs.release == 'true'
+        run: |
+          npm ci
+          npm run bundle
+          mkdir -p dist-release
+          cp release/dpm.cjs "dist-release/dpm-$VERSION.cjs"
+          cp release/dpm-server.cjs "dist-release/dpm-server-$VERSION.cjs"
+          node "dist-release/dpm-$VERSION.cjs" --version
+
+      - name: Build the npm package
+        if: steps.decide.outputs.release == 'true'
+        run: |
+          npm run build
+          npm pack --pack-destination dist-release
+
+      - name: Create the GitHub Release
+        if: steps.decide.outputs.release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          files: dist-release/*
