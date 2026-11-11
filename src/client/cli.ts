@@ -4,12 +4,14 @@ import { CachingSource, DpmError, formatTree, MissingDependencyError, parseId, r
 import { ClientHome } from './config';
 import { Project } from './project';
 import { pull, push } from './transfer';
+import { VERSION } from '../version';
 
 const home = ClientHome.dpm();
 const localRegistry = () => home.registry();
 
 const program = new Command()
     .name('dpm')
+    .version(VERSION)
     .description('Decentralized Package Manager: content-addressed packages across many registries');
 
 /** Runs a command action, printing DPM errors without a stack trace. */

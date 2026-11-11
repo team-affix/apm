@@ -3,6 +3,7 @@ import os from 'os';
 import path from 'path';
 import { Registry } from '../core';
 import { createServer } from './server';
+import { VERSION } from '../version';
 
 const port = Number(process.env.PORT ?? 3000);
 const host = process.env.HOST;
@@ -13,6 +14,6 @@ const registry = Registry.openOrCreate(registryDir);
 const server = createServer({ registry, allowProviders });
 
 server.listen(port, host, () => {
-    console.log(`dpm-server listening on ${host ?? '*'}:${port}`);
+    console.log(`dpm-server ${VERSION} listening on ${host ?? '*'}:${port}`);
     console.log(`registry: ${registryDir}`);
 });
