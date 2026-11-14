@@ -247,6 +247,36 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
         }, 120_000);
     });
 
+    describe('reading through a Kubo that requires a secret (e.g. on another machine)', () => {
+        /** The commands dpm uses, and nothing else: see docs/ipfs.md. */
+        const READ = ['/api/v0/cat', '/api/v0/refs', '/api/v0/get', '/api/v0/version'];
+
+        it('installs and lists trees with a token allowed only the read commands, which can do nothing else', async () => {
+            const author = await startNode();
+            const node = await startNode({
+                authorizations: {
+                    admin: { AuthSecret: 'bearer:admin-secret', AllowedPaths: ['/api/v0'] },
+                    dpm: { AuthSecret: 'bearer:read-only', AllowedPaths: READ },
+                },
+                auth: 'bearer:admin-secret',
+            });
+            await node.connect((await author.id()).addresses[0] as string);
+            const base = await publish(project({ 'Kant/Ethics.ul': 'duty' }), author);
+            const app = await publish(project({ 'App/Main.ul': 'm' }, [base]), author);
+
+            const reader = new Kubo(node.api, '20s', 'bearer:read-only');
+            expect((await tree(app, reader)).sort()).toEqual([app, base].sort());
+            const dir = project({}, [app]);
+            await install(dir, reader);
+            expect(readTree(path.join(dir, 'deps'))).toMatchObject({ [`${base}/Kant/Ethics.ul`]: 'duty' });
+
+            // The same token can't change anything, and no token gets nothing.
+            await expect(reader.pin(app)).rejects.toThrow(/Access Denied/);
+            await expect(reader.gc()).rejects.toThrow(/Access Denied/);
+            await expect(new Kubo(node.api, '20s').version()).rejects.toThrow(/Access Denied/);
+        });
+    });
+
     describe('server policy', () => {
         it('keeps a package only if its check command succeeds, and says why it refused', async () => {
             const [author, serverNode] = await Promise.all([startNode(), startNode()]);

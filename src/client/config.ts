@@ -1,17 +1,19 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { DpmError, Kubo } from '../core';
+import { authorizationHeader, DpmError, Kubo } from '../core';
 
 interface ConfigFile {
-    /** The local Kubo node's RPC API. */
+    /** The Kubo node's HTTP API URL. */
     kubo?: string;
+    /** Its secret, if it requires one: `bearer:<token>` or `basic:<user>:<password>`. */
+    kuboAuth?: string;
 }
 
 /**
- * The client's configuration: `$DPM_HOME/config.json`, by default `~/.dpm/client/config.json`: where the local
- * Kubo node's RPC API is. `dpm` talks only to that node. Packages live in IPFS, and everything that involves
- * other machines (fetching from servers, pushing to them) is done by Kubo.
+ * The client's configuration: `$DPM_HOME/config.json`, by default `~/.dpm/client/config.json`: which Kubo node
+ * dpm reads through (its HTTP API URL, and a secret if it requires one). `dpm` talks only to that node, and only
+ * reads; where the node is doesn't matter.
  */
 export class ClientConfig {
     private constructor(
@@ -30,13 +32,24 @@ export class ClientConfig {
         fs.writeFileSync(this.file, JSON.stringify(this.data, null, 4) + '\n');
     }
 
-    /** The local Kubo node: `$DPM_KUBO_API`, else the configured one, else http://127.0.0.1:5001. */
+    /**
+     * The Kubo node dpm reads through, on this machine or another: `$DPM_KUBO_API`, else the configured one,
+     * else http://127.0.0.1:5001. Its secret: `$DPM_KUBO_AUTH`, else the configured one.
+     */
     kubo(timeout?: string): Kubo {
-        return new Kubo(process.env.DPM_KUBO_API ?? this.data.kubo ?? 'http://127.0.0.1:5001', timeout);
+        return new Kubo(
+            process.env.DPM_KUBO_API ?? this.data.kubo ?? 'http://127.0.0.1:5001',
+            timeout,
+            process.env.DPM_KUBO_AUTH ?? this.data.kuboAuth,
+        );
     }
 
-    setKubo(api: string): void {
+    /** Sets the node, and its secret (none if not given: a secret belongs to one node). */
+    setKubo(api: string, auth?: string): void {
         if (!URL.canParse(api)) throw new DpmError(`Invalid URL: ${api}`);
+        if (auth) authorizationHeader(auth);
         this.data.kubo = api;
+        if (auth) this.data.kuboAuth = auth;
+        else delete this.data.kuboAuth;
     }
 }

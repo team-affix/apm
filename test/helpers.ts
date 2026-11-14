@@ -69,18 +69,30 @@ afterAll(async () => {
  * Starts a Kubo node in a fresh repo, isolated from the public network: local addresses only, no bootstrap
  * peers, no discovery. Nodes only meet when DPM connects them, as it would across the internet.
  */
-export async function startNode(): Promise<Kubo> {
+export async function startNode(
+    opts: {
+        /** Kubo's API.Authorizations: if set, every API request needs one of these secrets. */
+        authorizations?: Record<string, { AuthSecret: string; AllowedPaths: string[] }>;
+        /** The secret the returned client uses. */
+        auth?: string;
+    } = {},
+): Promise<Kubo> {
     if (!IPFS_BIN) throw new Error('no ipfs binary');
     const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'dpm-kubo-'));
     const env = { ...process.env, IPFS_PATH: repo };
     execFileSync(IPFS_BIN, ['init', '--profile=test,unixfs-v1-2025'], { env, stdio: 'ignore' });
+    if (opts.authorizations)
+        execFileSync(IPFS_BIN, ['config', '--json', 'API.Authorizations', JSON.stringify(opts.authorizations)], {
+            env,
+            stdio: 'ignore',
+        });
     const daemon = spawn(IPFS_BIN, ['daemon'], { env, stdio: 'ignore' });
     daemons.push(daemon);
     const apiFile = path.join(repo, 'api');
     for (let i = 0; i < 100 && !fs.existsSync(apiFile); i++) await new Promise((r) => setTimeout(r, 100));
     const m = /\/ip4\/([^/]+)\/tcp\/(\d+)/.exec(fs.readFileSync(apiFile, 'utf8'));
     if (!m) throw new Error('Kubo did not report its API address');
-    const kubo = new Kubo(`http://${m[1]}:${m[2]}`, '20s');
+    const kubo = new Kubo(`http://${m[1]}:${m[2]}`, '20s', opts.auth);
     for (let i = 0; i < 100; i++) {
         try {
             await kubo.version();

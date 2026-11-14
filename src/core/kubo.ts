@@ -28,16 +28,37 @@ export interface NodeInfo {
     addresses: string[];
 }
 
+/** The Authorization header for a secret written as Kubo writes them: `bearer:<token>` or `basic:<user>:<password>`. */
+export function authorizationHeader(secret: string): string {
+    const i = secret.indexOf(':');
+    const scheme = secret.slice(0, i).toLowerCase();
+    const value = secret.slice(i + 1);
+    if (i > 0 && value && scheme === 'bearer') return `Bearer ${value}`;
+    if (i > 0 && value.includes(':') && scheme === 'basic') return `Basic ${Buffer.from(value).toString('base64')}`;
+    throw new KuboError("An IPFS API secret must be 'bearer:<token>' or 'basic:<user>:<password>'");
+}
+
 /**
- * A client for a Kubo node's RPC API (normally http://127.0.0.1:5001). That API is the node's admin interface,
- * so it must stay private; peers reach the node through its own peer-to-peer port instead.
+ * A client for a Kubo node's HTTP API (which Kubo calls its RPC API; normally http://127.0.0.1:5001). The node
+ * may be on this machine or another: it's only a URL. By default that API allows every command, admin ones
+ * included, so a node reachable from other machines should require tokens limited to the commands each user
+ * needs (Kubo's `API.Authorizations`; see docs/ipfs.md).
  */
 export class Kubo {
+    private readonly authorization?: string;
+
     constructor(
         public readonly api = process.env.DPM_KUBO_API ?? 'http://127.0.0.1:5001',
         /** How long a request that may have to search the network can take, e.g. '60s'. */
         public readonly timeout = '120s',
-    ) {}
+        /**
+         * The secret for a node that requires one, written as in Kubo's `API.Authorizations` and its `--api-auth`
+         * option: `bearer:<token>` or `basic:<user>:<password>`.
+         */
+        auth?: string,
+    ) {
+        if (auth) this.authorization = authorizationHeader(auth);
+    }
 
     private async call(command: string, params: Record<string, string | string[]> = {}, body?: Buffer, type?: string) {
         const url = new URL(`/api/v0/${command}`, this.api);
@@ -47,7 +68,11 @@ export class Kubo {
         try {
             res = await fetch(url, {
                 method: 'POST',
-                ...(body && { body, headers: { 'content-type': type ?? 'application/octet-stream' } }),
+                headers: {
+                    ...(body && { 'content-type': type ?? 'application/octet-stream' }),
+                    ...(this.authorization && { authorization: this.authorization }),
+                },
+                ...(body && { body }),
             });
         } catch (e) {
             throw new KuboError(

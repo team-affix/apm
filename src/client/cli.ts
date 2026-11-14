@@ -11,8 +11,9 @@ import { pack, tree } from './client';
  * `dpm`: the DPM client. Packages are folders with a `dpm.json`, identified by their IPFS CID; `dpm.json` lists
  * the CIDs a package depends on.
  *
- * `dpm` does package management. It talks only to the local Kubo node, and only reads from it. Kubo does
- * everything else: adding, pinning, and every exchange with other machines, servers included:
+ * `dpm` does package management. It talks to one Kubo node, on this machine or another, and only reads from it
+ * (see docs/ipfs.md). Kubo does everything else: adding, pinning, and every exchange with other machines, servers
+ * included:
  *
  *   ipfs add -r -Q "$(dpm pack)"                    add a package to your node
  *   dpm tree <cid> | ipfs pin add                   pin a package and its whole tree
@@ -130,13 +131,18 @@ program
 
 program
     .command('node')
-    .description("Show which Kubo dpm talks to, or set it: the URL of Kubo's HTTP API")
+    .description("Show which Kubo dpm reads through, or set it: the URL of Kubo's HTTP API, on this machine or another")
     .option('--set <url>', "set the URL of Kubo's HTTP API (default http://127.0.0.1:5001)")
+    .option(
+        '--auth <secret>',
+        "with --set: the node's secret, if it requires one: bearer:<token> or basic:<user>:<password>",
+    )
     .action(
-        run(async (opts: { set?: string }) => {
+        run(async (opts: { set?: string; auth?: string }) => {
             const config = ClientConfig.load();
+            if (opts.auth && !opts.set) throw new DpmError('--auth goes with --set <url>');
             if (opts.set) {
-                config.setKubo(opts.set);
+                config.setKubo(opts.set, opts.auth);
                 config.save();
             }
             const kubo = config.kubo();
