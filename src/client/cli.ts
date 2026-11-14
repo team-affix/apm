@@ -117,9 +117,14 @@ program
 
 program
     .command('ls')
-    .description('List installed packages, with what each contains at its top level')
+    .description("List the project's installed packages, with what each contains at its top level")
+    .option('--node', "instead, list every package in the local IPFS node (DPM's pins, not other applications')")
     .action(
-        run(() => {
+        run(async (opts: { node?: boolean }) => {
+            if (opts.node) {
+                for (const cid of await ClientConfig.load().kubo().packages()) console.log(cid);
+                return;
+            }
             const graph = readGraph(dir());
             if (!graph) throw new DpmError("Nothing installed: run 'dpm install'");
             for (const [cid, { deps }] of Object.entries(graph.packages)) {

@@ -115,6 +115,15 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             expect(pins).not.toContain(bad);
         });
 
+        it('deletes what it refused, so its node stops serving it', async () => {
+            const [author, serverNode] = await Promise.all([startNode(), startNode()]);
+            const { url, server } = await startServer({ kubo: serverNode, policy: async () => 'refused' });
+            const cid = await pack(project({ 'Kant/Ethics.ul': 'duty' }), author);
+            expect((await push(cid, [{ name: 'home', url }], author))[0]?.status.status).toBe('failed');
+            await server.idle();
+            expect(await serverNode.hasLocally(cid)).toBe(false);
+        });
+
         it('runs the check with dependencies installed, so it can look at the whole tree', async () => {
             const [author, serverNode] = await Promise.all([startNode(), startNode()]);
             const { url } = await startServer({ kubo: serverNode, policy: commandPolicy('cat deps/graph.json') });
@@ -122,6 +131,40 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             const app = await pack(project({ 'App/Main.ul': 'm' }, [base]), author);
             expect((await push(app, [{ name: 'home', url }], author))[0]?.status.status).toBe('pinned');
             expect(await serverNode.pins()).toEqual(expect.arrayContaining([app, base]));
+        });
+    });
+
+    describe('sharing a node with other applications', () => {
+        /** Another application pinning something on the same node, under its own name. */
+        async function otherAppPins(kubo: Kubo, cid: string) {
+            const res = await fetch(`${kubo.api}/api/v0/pin/add?arg=${cid}&name=other-app`, { method: 'POST' });
+            expect(res.ok).toBe(true);
+        }
+
+        it("lists only DPM's packages, not other applications' content", async () => {
+            const kubo = await startNode();
+            const mine = await pack(project({ 'Kant/Ethics.ul': 'duty' }), kubo);
+            // Content another application stores and pins under its own name.
+            const theirs = await pack(project({ 'photo.txt': 'not a package' }), kubo);
+            await otherAppPins(kubo, theirs);
+            expect(await kubo.pins()).toEqual(expect.arrayContaining([mine, theirs]));
+            expect(await kubo.packages()).toEqual([mine]);
+        });
+
+        it("never renames another application's pin of the same content", async () => {
+            const [author, reader] = await Promise.all([startNode(), startNode()]);
+            const { url } = await startServer({ kubo: await startNode() });
+            const cid = await pack(project({ 'Kant/Ethics.ul': 'duty' }), author);
+            await push(cid, [{ name: 'home', url }], author);
+            await installProject(project({}, [cid]), reader, [{ name: 'home', url }]);
+            expect(await reader.packages()).toEqual([cid]);
+            // Another application pins the same content first on a fresh node: DPM leaves its pin alone.
+            const shared = await startNode();
+            await shared.connect((await author.id()).addresses[0] as string);
+            await otherAppPins(shared, cid);
+            await installProject(project({}, [cid]), shared, []);
+            expect(await shared.pins()).toContain(cid);
+            expect(await shared.packages()).toEqual([]);
         });
     });
 
@@ -140,7 +183,7 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
 
         it('lists requests by CID and state, and releases what a removed request held', async () => {
             const [author, serverNode] = await Promise.all([startNode(), startNode()]);
-            const { url } = await startServer({ kubo: serverNode });
+            const { url, server } = await startServer({ kubo: serverNode });
             const api = new PinningService(url);
             const base = await pack(project({ 'Kant/Ethics.ul': 'duty' }), author);
             const app = await pack(project({ 'App/Main.ul': 'm' }, [base]), author);
@@ -158,6 +201,9 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             expect(pins).toContain(base);
             await api.remove(second?.status.requestid as string);
             expect(await serverNode.pins()).not.toContain(base);
+            // ...and deletes it, so the node stops serving it.
+            await server.idle();
+            expect(await serverNode.hasLocally(base)).toBe(false);
         });
 
         it('rejects a request that is not for a CID', async () => {

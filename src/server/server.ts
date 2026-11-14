@@ -81,21 +81,26 @@ export async function createServer(opts: ServerOptions): Promise<DpmServer> {
         return { ...status, delegates };
     };
 
-    // One request at a time, in order. Requests interrupted by a restart are picked up again.
+    // One task at a time, in order: processing requests, and collecting garbage (which must not run while a
+    // request is fetching). Requests interrupted by a restart are picked up again.
     let queue = Promise.resolve();
-    const enqueue = (r: Request) => {
-        queue = queue.then(() => processRequest(r)).catch(() => undefined);
+    const run = (task: () => Promise<void>) => {
+        queue = queue.then(task).catch(() => undefined);
     };
+    const enqueue = (r: Request) => run(() => processRequest(r));
+    /** Deletes whatever the node no longer pins, so it stops serving packages it refused or released. */
+    const collect = () => run(() => kubo.gc());
     for (const r of requests) if (r.status === 'queued' || r.status === 'pinning') enqueue(r);
 
     /** CIDs kept for pinned requests, other than `except`. */
     const held = (except?: Request) =>
         new Set(requests.filter((r) => r !== except && r.status === 'pinned').flatMap((r) => r.tree ?? []));
 
-    /** Unpins whatever of `cids` no pinned request still holds. */
+    /** Unpins whatever of `cids` no pinned request still holds. Pins DPM didn't create are left alone. */
     async function release(cids: readonly string[], except?: Request) {
         const keep = held(except);
-        for (const cid of cids) if (!keep.has(cid)) await kubo.unpin(cid).catch(() => undefined);
+        const ours = new Set(await kubo.packages());
+        for (const cid of cids) if (!keep.has(cid) && ours.has(cid)) await kubo.unpin(cid).catch(() => undefined);
     }
 
     async function processRequest(r: Request) {
@@ -116,6 +121,7 @@ export async function createServer(opts: ServerOptions): Promise<DpmServer> {
             r.status = 'failed';
             r.info = { reason: (e as Error).message };
             await release(fetched, r);
+            collect();
         }
         save();
     }
@@ -199,7 +205,10 @@ export async function createServer(opts: ServerOptions): Promise<DpmServer> {
                     if (!authorized(req)) return fail(res, 401, 'UNAUTHORIZED', 'A valid access token is required');
                     requests.splice(requests.indexOf(r), 1);
                     save();
-                    if (r.status === 'pinned') await release(r.tree ?? []);
+                    if (r.status === 'pinned') {
+                        await release(r.tree ?? []);
+                        collect();
+                    }
                     return send(res, 202);
                 }
                 return fail(res, 404, 'NOT_FOUND');

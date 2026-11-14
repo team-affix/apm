@@ -19,6 +19,12 @@ export const IMPORT_SETTINGS = {
     'max-hamt-fanout': '256',
 } as const;
 
+/**
+ * The name DPM gives its pins, so a node shared with other applications can tell DPM's packages apart.
+ * A CID has one pin, and pinning again with another name renames it, so DPM only names pins it creates.
+ */
+export const PIN_NAME = 'dpm';
+
 /** A file or folder to add, by its path inside the package ('/'-separated). */
 export type Entry = { path: string; dir: true } | { path: string; dir?: false; content: Buffer };
 
@@ -108,7 +114,14 @@ export class Kubo {
 
         const res = await this.call(
             'add',
-            { ...IMPORT_SETTINGS, pin: String(pin), 'only-hash': String(!pin), progress: 'false', quieter: 'false' },
+            {
+                ...IMPORT_SETTINGS,
+                pin: String(pin),
+                ...(pin && { 'pin-name': PIN_NAME }),
+                'only-hash': String(!pin),
+                progress: 'false',
+                quieter: 'false',
+            },
             Buffer.concat(parts),
             `multipart/form-data; boundary=${boundary}`,
         );
@@ -137,19 +150,58 @@ export class Kubo {
         }
     }
 
-    /** Fetches a CID and everything under it, and keeps it. */
+    /**
+     * Fetches a CID and everything under it, and keeps it, named as DPM's. If it is already pinned (perhaps by
+     * another application), it is left as it is.
+     */
     async pin(cid: string): Promise<void> {
-        await this.call('pin/add', { arg: cid, recursive: 'true', progress: 'false', timeout: this.timeout });
+        if (await this.isPinned(cid)) return;
+        await this.call('pin/add', {
+            arg: cid,
+            recursive: 'true',
+            name: PIN_NAME,
+            progress: 'false',
+            timeout: this.timeout,
+        });
+    }
+
+    /** Whether a CID is pinned recursively, by anyone. */
+    async isPinned(cid: string): Promise<boolean> {
+        try {
+            await this.call('pin/ls', { arg: cid, type: 'recursive' });
+            return true;
+        } catch {
+            return false;
+        }
     }
 
     async unpin(cid: string): Promise<void> {
         await this.call('pin/rm', { arg: cid, recursive: 'true' });
     }
 
-    /** The CIDs pinned recursively on this node. */
+    /** The CIDs pinned recursively on this node, by anyone. */
     async pins(): Promise<string[]> {
         const r = await this.json<{ Keys?: Record<string, unknown> }>('pin/ls', { type: 'recursive' });
         return Object.keys(r.Keys ?? {});
+    }
+
+    /** The CIDs DPM pinned on this node: its packages, as opposed to other applications' content. */
+    async packages(): Promise<string[]> {
+        const r = await this.json<{ Keys?: Record<string, { Name?: string }> }>('pin/ls', {
+            type: 'recursive',
+            names: 'true',
+        });
+        return Object.entries(r.Keys ?? {})
+            .filter(([, v]) => v.Name === PIN_NAME)
+            .map(([cid]) => cid);
+    }
+
+    /**
+     * Deletes everything not pinned. A DPM server runs this after refusing or releasing a package, so its node
+     * stops serving what it refused.
+     */
+    async gc(): Promise<void> {
+        await this.call('repo/gc', { silent: 'true' });
     }
 
     /** Connects to another node, by a multiaddr that includes its peer ID (`.../p2p/<id>`). */
