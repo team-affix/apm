@@ -13,7 +13,7 @@ DPM is the storage layer of a logic platform for public discourse (see [docs/phi
 
 ## Install
 
-Requires Node.js 20+ and [Kubo](https://docs.ipfs.tech/install/command-line/), the standard IPFS node. Install the npm package from the [latest release](https://github.com/team-affix/apm/releases); it provides `dpm` and `dpm-server`:
+Requires Node.js 20+ and [Kubo](https://github.com/ipfs/kubo/releases), the standard IPFS node (download the `kubo_<version>_<platform>` archive from its GitHub releases; `dist.ipfs.tech` no longer answers since its operator, Shipyard, wound down). Install the npm package from the [latest release](https://github.com/team-affix/apm/releases); it provides `dpm` and `dpm-server`:
 
 ```bash
 npm install -g https://github.com/team-affix/apm/releases/download/v0.2.0/team-affix-dpm-0.2.0.tgz
