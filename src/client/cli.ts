@@ -2,21 +2,22 @@
 import fs from 'fs';
 import path from 'path';
 import { Command } from 'commander';
-import { assertCid, DEPS, DpmError, readGraph, readManifest, writeManifest } from '../core';
+import { assertCid, DEPS, DpmError, install, readGraph, readManifest, writeManifest } from '../core';
 import { VERSION } from '../version';
 import { ClientConfig } from './config';
-import { installProject, pack, remoteNode, status, tree } from './client';
+import { pack, tree } from './client';
 
 /**
  * `dpm`: the DPM client. Packages are folders with a `dpm.json`, identified by their IPFS CID; `dpm.json` lists
  * the CIDs a package depends on.
  *
- * `dpm` does package management and only reads from IPFS. Every change to what a node keeps (adding, pinning,
- * pushing to a server) is made with the `ipfs` command:
+ * `dpm` does package management. It talks only to the local Kubo node, and only reads from it. Kubo does
+ * everything else: adding, pinning, and every exchange with other machines, servers included:
  *
- *   ipfs add -r -Q "$(dpm pack)"                              add a package to your node
- *   dpm tree <cid> | xargs -n1 ipfs pin add                   pin a package and its whole tree
- *   ipfs pin remote add --service=<server> <cid>              push a package to a DPM server
+ *   ipfs add -r -Q "$(dpm pack)"                    add a package to your node
+ *   dpm tree <cid> | ipfs pin add                   pin a package and its whole tree
+ *   ipfs pin remote add --service=<server> <cid>    push a package to a DPM server
+ *   ipfs swarm peering add <server address>         stay connected to a server, to fetch from it
  */
 const program = new Command()
     .name('dpm')
@@ -79,12 +80,10 @@ program
     .description(
         'Fetch every dependency, by CID, into deps/<cid>/, and write deps/graph.json. Nothing is pinned: fetched data is only cached.',
     )
-    .option('-r, --remote <name...>', 'remotes to ask for packages (default: all)')
     .option('--timeout <duration>', 'how long fetching one package may take, e.g. 60s', '120s')
     .action(
-        run(async (opts: { remote?: string[]; timeout: string }) => {
-            const config = ClientConfig.load();
-            const graph = await installProject(dir(), config.kubo(opts.timeout), config.select(opts.remote));
+        run(async (opts: { timeout: string }) => {
+            const graph = await install(dir(), ClientConfig.load().kubo(opts.timeout));
             const n = Object.keys(graph.packages).length;
             console.log(`installed ${n} package${n === 1 ? '' : 's'} into ${path.join(dir(), DEPS)}`);
         }),
@@ -101,7 +100,7 @@ program
 program
     .command('tree')
     .description(
-        'Print a package and every package it depends on, recursively, one CID per line. To pin them all: dpm tree <cid> | xargs -n1 ipfs pin add',
+        'Print a package and every package it depends on, recursively, one CID per line. To pin them all: dpm tree <cid> | ipfs pin add',
     )
     .argument('<cid>')
     .option('--timeout <duration>', 'how long fetching one package may take, e.g. 60s', '120s')
@@ -115,15 +114,10 @@ program
     .command('ls')
     .description("List the project's installed packages, with what each contains at its top level")
     .option('--node', 'instead, list every DPM package pinned in the local IPFS node')
-    .option('--remote <name>', 'instead, list every DPM package a remote DPM server keeps')
     .action(
-        run(async (opts: { node?: boolean; remote?: string }) => {
-            if (opts.node || opts.remote) {
-                const config = ClientConfig.load();
-                const [remote] = opts.remote ? config.select([opts.remote]) : [];
-                // A DPM server's pin/ls already lists only DPM packages; a local node's pins are filtered here.
-                const cids = remote ? await remoteNode(remote).pins() : await config.kubo().packages();
-                for (const cid of cids) console.log(cid);
+        run(async (opts: { node?: boolean }) => {
+            if (opts.node) {
+                for (const cid of await ClientConfig.load().kubo().packages()) console.log(cid);
                 return;
             }
             const graph = readGraph(dir());
@@ -138,55 +132,6 @@ program
             }
         }),
     );
-
-program
-    .command('status')
-    .description('Show what each remote decided about a package you pushed, with its reason if it refused it')
-    .argument('<cid>')
-    .option('-r, --remote <name...>', 'remotes to ask (default: all)')
-    .action(
-        run(async (cid: string, opts: { remote?: string[] }) => {
-            for (const r of await status(assertCid(cid), ClientConfig.load().select(opts.remote))) {
-                const reason = r.status?.info?.reason;
-                console.log(`${r.remote}: ${r.status?.status ?? 'no request'}${reason ? `: ${reason}` : ''}`);
-            }
-        }),
-    );
-
-const remote = program
-    .command('remote')
-    .description('Manage the DPM servers dpm reads from (to push to one, use ipfs pin remote add)');
-
-remote
-    .command('add')
-    .argument('<name>')
-    .argument('<url>')
-    .action(
-        run((name: string, url: string) => {
-            const config = ClientConfig.load();
-            config.addRemote({ name, url });
-            config.save();
-        }),
-    );
-
-remote
-    .command('remove')
-    .argument('<name>')
-    .action(
-        run((name: string) => {
-            const config = ClientConfig.load();
-            config.removeRemote(name);
-            config.save();
-        }),
-    );
-
-remote.command('ls').action(
-    run(() =>
-        ClientConfig.load()
-            .remotes()
-            .forEach((r) => console.log(`${r.name}\t${r.url}`)),
-    ),
-);
 
 program
     .command('node')

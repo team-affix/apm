@@ -30,7 +30,7 @@ Installing a project means:
 3. Writing `deps/graph.json`: `{ "root": [<the project's deps>], "packages": { "<cid>": { "deps": [...] } } }`.
 4. Removing any `deps/<cid>/` no longer in the graph.
 
-Installation fails if any CID in the tree cannot be fetched.
+Installation fails if any CID in the tree cannot be fetched. Packages are fetched over IPFS from whichever node has them; a client never contacts a server to install. To fetch from a server reliably, a client keeps its node connected to the server's node (Kubo's peering).
 
 DPM never interprets content. What the packages mean, and what to do if two of them clash (for example, two different packages providing the same module), is up to the tools that use them, which can read everything from `deps/` and `graph.json`.
 
@@ -45,15 +45,7 @@ A DPM server keeps packages and makes them available. It speaks the **IPFS Pinni
 | `GET /pins/:requestid` | One request's status |
 | `DELETE /pins/:requestid` | Withdraw a request |
 
-**What a server keeps** is answered in Kubo's own RPC format, so clients ask a server exactly what they ask their local node, and the stock `ipfs --api=<server>` command works:
-
-| Request | Meaning |
-|---|---|
-| `POST /api/v0/pin/ls[?arg=<cid>]` | the server's DPM packages: every pinned folder with a `dpm.json` (including any dependencies it keeps), and nothing else on its node. With `arg`, an error if it doesn't keep that CID. |
-| `POST /api/v0/id` | the server's node: its peer ID and the addresses to connect to |
-| `POST /api/v0/version` | the node's version (the `ipfs` command checks it first) |
-
-These are read-only, answered by the server itself. Nothing else under `/api/v0/` is answered, and nothing is passed through to the node's private RPC API.
+A server answers nothing else. In particular, it never exposes its node's RPC API.
 
 Statuses go `queued`, then `pinning`, then `pinned` or `failed`. Each carries the server's `delegates`: multiaddrs of its node. A failure's reason is in `info.reason`.
 
@@ -62,9 +54,9 @@ Statuses go `queued`, then `pinning`, then `pinned` or `failed`. Each carries th
 A server:
 
 - MUST fetch the package's whole tree (following `dpm.json`) before reporting it `pinned`, so its policy can look at all of it, and MUST keep the package until the request is withdrawn.
-- MAY pin the package's dependencies too. The reference server pins only what was pushed, by default: it fetches the dependencies to apply its policy, without pinning them, so they stay only as cached data until garbage collection, as with anything a Kubo node fetches (`DPM_KEEP_DEPS=1` pins them). A client that wants a server to keep dependencies pushes each of them (`dpm tree <cid> | xargs -n1 ipfs pin remote add --service=<server>`).
+- MAY pin the package's dependencies too. The reference server pins only what was pushed, by default: it fetches the dependencies to apply its policy, without pinning them, so they stay only as cached data until garbage collection, as with anything a Kubo node fetches (`DPM_KEEP_DEPS=1` pins them). A client that wants a server to keep dependencies pushes each of them (each CID `dpm tree <cid>` prints, with `ipfs pin remote add`).
 - SHOULD delete what it refused or released (garbage-collect its node), so it stops serving it. A server SHOULD use a node of its own, so everything the node holds is something the server chose to keep.
-- MAY refuse any package for any reason, reporting it `failed` with a reason. Acceptance policy is the server's own: the reference server keeps any package whose tree can be fetched, a logic server also requires the content to check, and an operator may add size limits or access tokens.
+- MAY refuse any package for any reason, reporting it `failed`, with a reason in `info.reason` if it likes. Acceptance policy is the server's own: the reference server keeps any package whose tree can be fetched, a logic server also requires the content to check, and an operator may add size limits or access tokens.
 - MAY require an access token (`Authorization: Bearer <token>`) for adding or withdrawing pins.
 
 Since a CID fixes its whole tree, a server that keeps a CID after checking it has checked exactly that content, permanently.

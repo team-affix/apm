@@ -6,7 +6,7 @@ DPM is a thin layer over [IPFS](https://ipfs.tech) for packages that depend on e
 - A package's `dpm.json` lists the packages it depends on, **by CID only**, never by location. Any IPFS node holding the content is as good a source as any other, and every block is checked against its CID.
 - `dpm install` fetches the whole tree and lays it out **flat**, as `deps/<cid>/`, each package once, plus `deps/graph.json`. Since a CID fixes its entire dependency tree, there is nothing to resolve: DPM has no names, no overrides and no conflicts. What packages mean, and what to do when two of them clash, is left to the tools that use them.
 - **Servers** keep packages and decide what to keep. They speak the standard IPFS Pinning Service API, so you push with Kubo's own `ipfs pin remote add`. Pushing never uploads anything: you send the CID, and the server's IPFS node fetches it from yours.
-- **`dpm` only reads from IPFS.** Adding, pinning and pushing are done with the `ipfs` command; `dpm` tells it what to add (`dpm pack`) and which CIDs make up a tree (`dpm tree`).
+- **`dpm` talks only to your local IPFS node, and only reads from it.** Adding, pinning, pushing and connecting to servers are done with the `ipfs` command; `dpm` handles what needs package knowledge: what to add (`dpm pack`), which CIDs make up a tree (`dpm tree`), and installing.
 
 **DPM is a protocol** ([spec](docs/protocol.md)): every server shares the package format, the install rules and the API, and each sets its own acceptance policy. There is **one client, `dpm`**, for every kind of content and every server. Checking content is the job of the content's own tools: a Unilog server is the reference server configured to run `unilog check`.
 
@@ -28,8 +28,8 @@ ipfs daemon                             # keep it running
 # run a server (next to its own Kubo node)
 DPM_KUBO_API=http://127.0.0.1:5001 PORT=3000 dpm-server &
 
-dpm remote add home http://localhost:3000                      # for dpm to read from
-ipfs pin remote service add home http://localhost:3000 none    # for ipfs to push to
+ipfs pin remote service add home http://localhost:3000 none    # push to it
+ipfs swarm peering add <an address dpm-server printed>         # fetch from it
 
 # publish a package
 mkdir base && cd base
@@ -43,7 +43,7 @@ mkdir ../app && cd ../app
 dpm init
 dpm add $BASE
 dpm install                                   # writes deps/<cid>/Kant/Ethics.ul and deps/graph.json (nothing pinned)
-dpm tree $BASE | xargs -n1 ipfs pin add       # after checking it: keep it, and its whole tree, in your node
+dpm tree $BASE | ipfs pin add                 # after checking it: keep it, and its whole tree, in your node
 ```
 
 See the [protocol spec](docs/protocol.md), the [architecture](docs/architecture.md) (library, server policies), the [CLI reference](docs/cli.md) and the [engineering principles](docs/engineering.md).
@@ -53,7 +53,7 @@ See the [protocol spec](docs/protocol.md), the [architecture](docs/architecture.
 ```ts
 import { Kubo, install, PinningService } from '@team-affix/dpm';
 import { createServer, commandPolicy } from '@team-affix/dpm/server';
-import { pack, tree, installProject } from '@team-affix/dpm/client';
+import { pack, tree } from '@team-affix/dpm/client';
 ```
 
 ## Releases

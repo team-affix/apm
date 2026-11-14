@@ -4,8 +4,8 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
-import { installProject, pack, Remote, remoteNode, status, tree } from '../src/client';
-import { Kubo, PinningService, readGraph, writeManifest } from '../src/core';
+import { pack, tree } from '../src/client';
+import { install, Kubo, PinningService, PinStatus, readGraph, writeManifest } from '../src/core';
 import { commandPolicy } from '../src/server';
 import { IPFS_BIN, readTree, startNode, startServer, tmpDir, writeTree } from './helpers';
 
@@ -21,10 +21,16 @@ function project(files: Record<string, string>, deps: string[] = []): string {
  * Runs the stock `ipfs` command against `node`, as a user would. Asynchronously: DPM servers run in this same
  * process, so blocking would stop them from answering.
  */
-async function ipfs(node: Kubo | string, ...args: string[]): Promise<string> {
-    const port = new URL(typeof node === 'string' ? node : node.api).port;
-    const { stdout } = await promisify(execFile)(IPFS_BIN as string, [`--api=/ip4/127.0.0.1/tcp/${port}`, ...args]);
-    return stdout.trim();
+async function ipfs(node: Kubo, ...args: string[]): Promise<string> {
+    return ipfsWithInput(node, '', ...args);
+}
+
+/** The same, with `input` piped to its stdin: e.g. `dpm tree <cid> | ipfs pin add`. */
+async function ipfsWithInput(node: Kubo, input: string, ...args: string[]): Promise<string> {
+    const port = new URL(node.api).port;
+    const run = promisify(execFile)(IPFS_BIN as string, [`--api=/ip4/127.0.0.1/tcp/${port}`, ...args]);
+    run.child.stdin?.end(input);
+    return (await run).stdout.trim();
 }
 
 /** Packs a project to a temporary folder, runs `ipfs add -r -Q <folder> ...extra`, and removes the folder. */
@@ -43,17 +49,39 @@ const publish = (dir: string, node: Kubo) => addPacked(dir, node);
 /** The CID a project would have, without adding it anywhere: a package nobody has. */
 const unpublished = (dir: string, node: Kubo) => addPacked(dir, node, '--only-hash');
 
+/** A DPM server, as a user's Kubo knows it: a name for pushing, and its node's addresses for fetching. */
+interface Server {
+    name: string;
+    url: string;
+    delegates: readonly string[];
+}
+
 /** What a user runs to push a CID to a server: ipfs pin remote add --service=<server> <cid>. */
-async function push(node: Kubo, server: Remote, cid: string, token = 'none'): Promise<string> {
+async function push(node: Kubo, server: Pick<Server, 'name' | 'url'>, cid: string, token = 'none'): Promise<string> {
     const services = await ipfs(node, 'pin', 'remote', 'service', 'ls');
     if (!services.split('\n').some((l) => l.startsWith(`${server.name} `)))
         await ipfs(node, 'pin', 'remote', 'service', 'add', server.name, server.url, token);
     return ipfs(node, 'pin', 'remote', 'add', `--service=${server.name}`, cid);
 }
 
-/** dpm tree <cid> | xargs -n1 ipfs pin remote add --service=<server> */
-async function pushTree(node: Kubo, server: Remote, cid: string): Promise<void> {
+/** dpm tree <cid>, then ipfs pin remote add --service=<server> for each CID. */
+async function pushTree(node: Kubo, server: Server, cid: string): Promise<void> {
     for (const c of await tree(cid, node)) await push(node, server, c);
+}
+
+/** What a user runs to fetch from a server: ipfs swarm peering add <the server node's addresses>. */
+const peer = (node: Kubo, server: Server) => ipfs(node, 'swarm', 'peering', 'add', ...server.delegates);
+
+/** A server's recorded decision on a CID, from its Pinning Service API. */
+async function decision(server: Server, cid: string): Promise<PinStatus | undefined> {
+    const [s] = await new PinningService(server.url).list({ cid: [cid], status: ['pinned', 'failed'] });
+    return s;
+}
+
+/** Starts a DPM server in front of `kubo`, named `home`. */
+async function homeServer(opts: Parameters<typeof startServer>[0]): Promise<Server & { idle(): Promise<void> }> {
+    const { url, server } = await startServer(opts);
+    return { name: 'home', url, delegates: server.delegates, idle: () => server.idle() };
 }
 
 const REFUSED = /remote service failed to pin/;
@@ -134,9 +162,9 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
         /** Three nodes: the author's, a server's, and a reader's that starts empty. */
         async function world() {
             const [author, serverNode, reader] = await Promise.all([startNode(), startNode(), startNode()]);
-            const { url, server } = await startServer({ kubo: serverNode });
-            const home: Remote = { name: 'home', url };
-            return { author, serverNode, reader, home, server };
+            const home = await homeServer({ kubo: serverNode });
+            await peer(reader, home);
+            return { author, serverNode, reader, home };
         }
 
         it('pushes with ipfs pin remote add: the server fetches from the author over IPFS', async () => {
@@ -144,7 +172,6 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             const cid = await publish(project({ 'Kant/Ethics.ul': 'duty' }), author);
             expect(await push(author, home, cid)).toMatch(/Status: pinned/);
             expect(await serverNode.pins()).toContain(cid);
-            expect(await status(cid, [home])).toMatchObject([{ remote: 'home', status: { status: 'pinned' } }]);
         });
 
         it('installs the whole tree into flat deps/<cid>/ folders, each package once, from the server', async () => {
@@ -158,7 +185,7 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             await pushTree(author, home, bob);
 
             const app = project({}, [alice, bob]);
-            const graph = await installProject(app, reader, [home]);
+            const graph = await install(app, reader);
             expect(Object.keys(graph.packages).sort()).toEqual([alice, base, bob].sort());
             expect(graph.packages[alice]?.deps).toEqual([base]);
             expect(readTree(path.join(app, 'deps'))).toMatchObject({
@@ -174,15 +201,15 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             const base = await publish(project({ 'Kant/Ethics.ul': 'duty' }), author);
             const alice = await publish(project({ 'Alice/Beliefs.ul': 'a' }, [base]), author);
             await pushTree(author, home, alice);
-            await installProject(project({}, [alice]), reader, [home]);
+            await install(project({}, [alice]), reader);
             // Installed, and cached in the node, but not pinned.
             expect(await reader.hasLocally(alice)).toBe(true);
             expect(await reader.packages()).toEqual([]);
             // ...the user runs their checks here, then pins Alice's package alone...
             await ipfs(reader, 'pin', 'add', alice);
             expect(await reader.packages()).toEqual([alice]);
-            // ...or its whole tree: dpm tree <cid> | xargs -n1 ipfs pin add
-            for (const c of await tree(alice, reader)) await ipfs(reader, 'pin', 'add', c);
+            // ...or its whole tree: dpm tree <cid> | ipfs pin add
+            await ipfsWithInput(reader, (await tree(alice, reader)).join('\n') + '\n', 'pin', 'add');
             expect((await reader.packages()).sort()).toEqual([alice, base].sort());
         });
 
@@ -193,9 +220,9 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             await push(author, home, base);
             await push(author, home, other);
             const app = project({}, [base, other]);
-            await installProject(app, reader, [home]);
+            await install(app, reader);
             writeManifest(app, { deps: [base] });
-            await installProject(app, reader, [home]);
+            await install(app, reader);
             expect(fs.readdirSync(path.join(app, 'deps')).sort()).toEqual([base, 'graph.json'].sort());
         });
 
@@ -203,9 +230,7 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             const author = await startNode();
             const missing = await unpublished(project({ 'Nowhere/X.ul': 'gone' }), author);
             const reader = new Kubo((await startNode()).api, '2s');
-            await expect(installProject(project({}, [missing]), reader, [])).rejects.toThrow(
-                `Could not fetch ${missing}`,
-            );
+            await expect(install(project({}, [missing]), reader)).rejects.toThrow(`Could not fetch ${missing}`);
         });
 
         it('a server refuses a package whose tree cannot be completed', async () => {
@@ -213,9 +238,9 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             const missing = await unpublished(project({ 'Nowhere/X.ul': 'gone' }), author);
             const present = await publish(project({ 'Kant/Ethics.ul': 'duty' }, [missing]), author);
             await expect(push(author, home, present)).rejects.toThrow(REFUSED);
-            const [s] = await status(present, [home]);
-            expect(s?.status?.status).toBe('failed');
-            expect(s?.status?.info?.reason).toContain(`Could not fetch ${missing}`);
+            const s = await decision(home, present);
+            expect(s?.status).toBe('failed');
+            expect(s?.info?.reason).toContain(`Could not fetch ${missing}`);
             expect(await serverNode.pins()).not.toContain(present);
         }, 120_000);
     });
@@ -224,16 +249,16 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
         it('keeps a package only if its check command succeeds, and says why it refused', async () => {
             const [author, serverNode] = await Promise.all([startNode(), startNode()]);
             // The check: every package must contain a README.
-            const { url } = await startServer({ kubo: serverNode, policy: commandPolicy('test -f README') });
-            const home = { name: 'home', url };
+            const home = await homeServer({ kubo: serverNode, policy: commandPolicy('test -f README') });
 
             const good = await publish(project({ README: 'hi', 'Kant/Ethics.ul': 'duty' }), author);
             const bad = await publish(project({ 'Kant/Ethics.ul': 'duty' }), author);
             expect(await push(author, home, good)).toMatch(/Status: pinned/);
             await expect(push(author, home, bad)).rejects.toThrow(REFUSED);
-            const [refused] = await status(bad, [home]);
-            expect(refused?.status?.status).toBe('failed');
-            expect(refused?.status?.info?.reason).toMatch(/'test -f README' failed/);
+            // The server records why; the ipfs command reports only that it refused.
+            const refused = await decision(home, bad);
+            expect(refused?.status).toBe('failed');
+            expect(refused?.info?.reason).toMatch(/'test -f README' failed/);
             const pins = await serverNode.pins();
             expect(pins).toContain(good);
             expect(pins).not.toContain(bad);
@@ -325,36 +350,9 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             expect(await serverNode.hasLocally(base)).toBe(false);
         });
 
-        it("answers in Kubo's own format which DPM packages it keeps, dependencies included", async () => {
-            const [author, serverNode] = await Promise.all([startNode(), startNode()]);
-            const { url } = await startServer({ kubo: serverNode, keepDependencies: true });
-            const base = await publish(project({ 'Kant/Ethics.ul': 'duty' }), author);
-            const app = await publish(project({ 'App/Main.ul': 'm' }, [base]), author);
-            await push(author, { name: 'home', url }, app);
-            // Something else on the server's node, which isn't a DPM package.
-            const folder = tmpDir();
-            writeTree(folder, { 'photo.txt': 'x' });
-            const other = await ipfs(serverNode, 'add', '-r', '-Q', folder);
-
-            // The same client code as for a local node: its pins are exactly its DPM packages.
-            const remote = remoteNode({ name: 'home', url });
-            expect((await remote.pins()).sort()).toEqual([app, base].sort());
-            expect(await remote.isPinned(base)).toBe(true);
-            expect(await remote.isPinned(other)).toBe(false);
-            expect((await remote.id()).id).toBe((await serverNode.id()).id);
-        });
-
-        it('works with the stock ipfs command, pointed at the server', async () => {
-            const [author, serverNode] = await Promise.all([startNode(), startNode()]);
-            const { url } = await startServer({ kubo: serverNode });
-            const cid = await publish(project({ 'Kant/Ethics.ul': 'duty' }), author);
-            await push(author, { name: 'home', url }, cid);
-            expect(await ipfs(url, 'pin', 'ls')).toBe(`${cid} recursive`);
-        });
-
-        it("forwards nothing else to the node's private API", async () => {
+        it("answers nothing of Kubo's RPC API, which stays private", async () => {
             const { url } = await startServer({ kubo: await startNode() });
-            for (const command of ['pin/rm', 'pin/add', 'repo/gc', 'config', 'shutdown']) {
+            for (const command of ['pin/ls', 'id', 'version', 'pin/rm', 'pin/add', 'repo/gc', 'config', 'shutdown']) {
                 const res = await fetch(`${url}/api/v0/${command}`, { method: 'POST' });
                 expect(res.status).toBe(404);
             }
