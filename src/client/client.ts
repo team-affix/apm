@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -15,32 +16,34 @@ import {
 import { Remote } from './config';
 
 /**
- * Writes the package a project folder makes (everything except `deps/` and hidden files) to a new folder, `out`
- * or else a fresh temporary one, and returns that folder and the CID it will have once added to IPFS. `out` must
- * not exist yet. Nothing is stored in IPFS: add it with `ipfs add -r <folder>`.
+ * Writes the package a project folder makes (everything except `deps/` and hidden files) to a new folder, and
+ * returns the folder. The folder is `out`, which must not exist yet, or else a new temporary folder named by a
+ * random GUID. Everything written is made read-only: the folder is the package, to be added as it is
+ * (`ipfs add -r <folder>`), not edited. (To delete it: `chmod -R u+w <folder>`, then remove it.)
+ *
+ * Nothing touches IPFS.
  */
-export async function pack(dir: string, kubo: Kubo, out?: string): Promise<{ folder: string; cid: string }> {
+export function pack(dir: string, out?: string): string {
     readManifest(dir);
     const entries = readPackageFolder(dir);
-    let folder: string;
-    if (out) {
-        folder = path.resolve(out);
-        if (fs.existsSync(folder)) throw new DpmError(`${folder} already exists: pack writes a new folder`);
-        fs.mkdirSync(path.dirname(folder), { recursive: true });
-    } else folder = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dpm-pack-')), 'package');
+    const folder = out ? path.resolve(out) : path.join(os.tmpdir(), randomUUID());
+    if (fs.existsSync(folder)) throw new DpmError(`${folder} already exists: pack writes a new folder`);
+    fs.mkdirSync(path.dirname(folder), { recursive: true });
     fs.mkdirSync(folder);
+    const dirs = [folder];
     for (const e of entries) {
         const target = path.join(folder, ...e.path.split('/'));
-        if (e.dir) fs.mkdirSync(target, { recursive: true });
-        else fs.writeFileSync(target, e.content);
+        if (e.dir) {
+            fs.mkdirSync(target, { recursive: true });
+            dirs.push(target);
+        } else {
+            fs.writeFileSync(target, e.content);
+            fs.chmodSync(target, 0o444);
+        }
     }
-    return { folder, cid: await kubo.addFolder(entries, false) };
-}
-
-/** A project's CID, computed without storing anything. */
-export function cidOf(dir: string, kubo: Kubo): Promise<string> {
-    readManifest(dir);
-    return kubo.addFolder(readPackageFolder(dir), false);
+    // Deepest folders first, so each is still writable while its subfolders are made read-only.
+    for (const d of dirs.reverse()) fs.chmodSync(d, 0o555);
+    return folder;
 }
 
 /**

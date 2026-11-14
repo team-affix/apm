@@ -1,12 +1,13 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
-import { cidOf, installProject, pack, Remote, remoteNode, status, tree } from '../src/client';
+import { installProject, pack, Remote, remoteNode, status, tree } from '../src/client';
 import { Kubo, PinningService, readGraph, writeManifest } from '../src/core';
 import { commandPolicy } from '../src/server';
-import { IPFS_BIN, readTree, startNode, startServer, tmpDir, writeTree } from './helpers';
+import { IPFS_BIN, makeWritable, readTree, startNode, startServer, tmpDir, writeTree } from './helpers';
 
 /** A package folder with the given files and dependencies. */
 function project(files: Record<string, string>, deps: string[] = []): string {
@@ -26,11 +27,22 @@ async function ipfs(node: Kubo | string, ...args: string[]): Promise<string> {
     return stdout.trim();
 }
 
-/** What a user runs to publish a project: ipfs add -r -Q "$(dpm pack)". Returns the CID. */
-async function publish(dir: string, node: Kubo): Promise<string> {
-    const { folder } = await pack(dir, node);
-    return ipfs(node, 'add', '-r', '-Q', folder);
+/** Packs a project to a temporary folder, runs `ipfs add -r -Q <folder> ...extra`, and removes the folder. */
+async function addPacked(dir: string, node: Kubo, ...extra: string[]): Promise<string> {
+    const folder = pack(dir);
+    try {
+        return await ipfs(node, 'add', '-r', '-Q', ...extra, folder);
+    } finally {
+        makeWritable(folder);
+        fs.rmSync(folder, { recursive: true });
+    }
 }
+
+/** What a user runs to publish a project: ipfs add -r -Q "$(dpm pack)". Returns the CID. */
+const publish = (dir: string, node: Kubo) => addPacked(dir, node);
+
+/** The CID a project would have, without adding it anywhere: a package nobody has. */
+const unpublished = (dir: string, node: Kubo) => addPacked(dir, node, '--only-hash');
 
 /** What a user runs to push a CID to a server: ipfs pin remote add --service=<server> <cid>. */
 async function push(node: Kubo, server: Remote, cid: string, token = 'none'): Promise<string> {
@@ -47,56 +59,55 @@ async function pushTree(node: Kubo, server: Remote, cid: string): Promise<void> 
 
 const REFUSED = /remote service failed to pin/;
 
+describe('dpm pack', () => {
+    const MANIFEST_TEXT = '{\n    "deps": []\n}\n';
+    const writable = (p: string) => (fs.statSync(p).mode & 0o222) !== 0;
+
+    it('writes the package without deps/ and hidden files, to a temporary folder named by a GUID', () => {
+        const dir = project({ 'Kant/Ethics.ul': 'x', 'deps/something/file': 'installed', '.git/HEAD': 'ref' });
+        const folder = pack(dir);
+        try {
+            expect(path.dirname(folder)).toBe(os.tmpdir());
+            expect(path.basename(folder)).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+            expect(readTree(folder)).toEqual({ 'Kant/Ethics.ul': 'x', 'dpm.json': MANIFEST_TEXT });
+        } finally {
+            makeWritable(folder);
+            fs.rmSync(folder, { recursive: true });
+        }
+    });
+
+    it('makes everything it writes read-only', () => {
+        const out = path.join(tmpDir(), 'kant');
+        pack(project({ 'Kant/Ethics.ul': 'x' }), out);
+        for (const p of [out, path.join(out, 'Kant'), path.join(out, 'Kant/Ethics.ul'), path.join(out, 'dpm.json')])
+            expect(writable(p)).toBe(false);
+    });
+
+    it('writes to a folder of your choosing, but never over an existing one', () => {
+        const dir = project({ 'Kant/Ethics.ul': 'x' });
+        const out = path.join(tmpDir(), 'out', 'kant');
+        expect(pack(dir, out)).toBe(out);
+        expect(readTree(out)).toEqual({ 'Kant/Ethics.ul': 'x', 'dpm.json': MANIFEST_TEXT });
+        expect(() => pack(dir, out)).toThrow(/already exists/);
+    });
+
+    it("refuses a folder without dpm.json: it isn't a DPM package", () => {
+        const dir = tmpDir();
+        writeTree(dir, { 'Kant/Ethics.ul': 'x' });
+        expect(() => pack(dir)).toThrow(/is not a DPM project/);
+    });
+});
+
 describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 }, () => {
     if (!IPFS_BIN) it.skip('needs the ipfs binary: set IPFS_BIN or put Kubo on the PATH', () => undefined);
 
     describe('identity', () => {
-        it('gives a project the CID that ipfs add gives its packed folder, on any node', async () => {
+        it('gives the same package the same CID on any node', async () => {
             const [a, b] = await Promise.all([startNode(), startNode()]);
             const dir = project({ 'Kant/Ethics.ul': 'duty : \\X. good X => ought X;\n' });
             const cid = await publish(dir, a);
-            expect((await pack(dir, a)).cid).toBe(cid);
-            expect(await cidOf(dir, a)).toBe(cid);
-            expect(await cidOf(dir, b)).toBe(cid);
+            expect(await publish(dir, b)).toBe(cid);
             expect(cid).toMatch(/^bafy/);
-        });
-
-        it("packs without deps/ and hidden files: they aren't part of the package", async () => {
-            const kubo = await startNode();
-            const dir = project({ 'Kant/Ethics.ul': 'x' });
-            const before = await cidOf(dir, kubo);
-            writeTree(dir, { 'deps/something/file': 'installed', '.git/HEAD': 'ref' });
-            const { folder } = await pack(dir, kubo);
-            expect(readTree(folder)).toEqual({ 'Kant/Ethics.ul': 'x', 'dpm.json': '{\n    "deps": []\n}\n' });
-            expect(await cidOf(dir, kubo)).toBe(before);
-            writeTree(dir, { 'Kant/More.ul': 'y' });
-            expect(await cidOf(dir, kubo)).not.toBe(before);
-        });
-
-        it("refuses to pack a folder without dpm.json: it isn't a DPM package", async () => {
-            const kubo = await startNode();
-            const dir = tmpDir();
-            writeTree(dir, { 'Kant/Ethics.ul': 'x' });
-            await expect(pack(dir, kubo)).rejects.toThrow(/is not a DPM project/);
-        });
-
-        it('packs into a folder of your choosing, but never over an existing one', async () => {
-            const kubo = await startNode();
-            const dir = project({ 'Kant/Ethics.ul': 'x' });
-            const out = path.join(tmpDir(), 'out', 'kant');
-            const { folder, cid } = await pack(dir, kubo, out);
-            expect(folder).toBe(out);
-            expect(readTree(out)).toEqual({ 'Kant/Ethics.ul': 'x', 'dpm.json': '{\n    "deps": []\n}\n' });
-            expect(await ipfs(kubo, 'add', '-r', '-Q', out)).toBe(cid);
-            await expect(pack(dir, kubo, out)).rejects.toThrow(/already exists/);
-        });
-
-        it('pack and cid store nothing in the node', async () => {
-            const kubo = await startNode();
-            const dir = project({ 'Kant/Ethics.ul': 'x' });
-            const { cid } = await pack(dir, kubo);
-            expect(await cidOf(dir, kubo)).toBe(cid);
-            expect(await kubo.hasLocally(cid)).toBe(false);
         });
     });
 
@@ -113,7 +124,7 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
 
         it('fails, printing nothing, when the tree cannot be completed', async () => {
             const author = await startNode();
-            const missing = await cidOf(project({ 'Nowhere/X.ul': 'gone' }), author);
+            const missing = await unpublished(project({ 'Nowhere/X.ul': 'gone' }), author);
             const present = await publish(project({ 'Kant/Ethics.ul': 'duty' }, [missing]), author);
             const quick = new Kubo(author.api, '2s');
             await expect(tree(present, quick)).rejects.toThrow(`Could not fetch ${missing}`);
@@ -200,7 +211,7 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
 
         it('fails, naming the package, when a dependency cannot be found anywhere', async () => {
             const author = await startNode();
-            const missing = await cidOf(project({ 'Nowhere/X.ul': 'gone' }), author);
+            const missing = await unpublished(project({ 'Nowhere/X.ul': 'gone' }), author);
             const reader = new Kubo((await startNode()).api, '2s');
             await expect(installProject(project({}, [missing]), reader, [])).rejects.toThrow(
                 `Could not fetch ${missing}`,
@@ -209,7 +220,7 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
 
         it('a server refuses a package whose tree cannot be completed', async () => {
             const { author, serverNode, home } = await world();
-            const missing = await cidOf(project({ 'Nowhere/X.ul': 'gone' }), author);
+            const missing = await unpublished(project({ 'Nowhere/X.ul': 'gone' }), author);
             const present = await publish(project({ 'Kant/Ethics.ul': 'duty' }, [missing]), author);
             await expect(push(author, home, present)).rejects.toThrow(REFUSED);
             const [s] = await status(present, [home]);

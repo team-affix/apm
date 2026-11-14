@@ -16,8 +16,18 @@ export function tmpDir(prefix = 'dpm-test-'): string {
     return dir;
 }
 
+/** Makes everything under `dir` writable again (dpm pack writes read-only folders), so it can be removed. */
+export function makeWritable(dir: string): void {
+    if (!fs.existsSync(dir) || fs.lstatSync(dir).isSymbolicLink()) return;
+    fs.chmodSync(dir, fs.statSync(dir).isDirectory() ? 0o755 : 0o644);
+    if (fs.statSync(dir).isDirectory()) for (const name of fs.readdirSync(dir)) makeWritable(path.join(dir, name));
+}
+
 afterEach(() => {
-    for (const dir of created.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
+    for (const dir of created.splice(0)) {
+        makeWritable(dir);
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
 });
 
 /** Writes `files` (relative path -> content) under `dir`. */

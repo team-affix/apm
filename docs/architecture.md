@@ -38,7 +38,7 @@ DPM has no package names, so it has no name conflicts, no overrides and no resol
 | `fetchTree`, `install`, `readGraph` | Fetch a tree by CID (each package once), and install it flat |
 | `PinningService` | A client for the Pinning Service API: `add`, `get`, `list`, `remove`, `wait` |
 
-`@team-affix/dpm/server` has `createServer` (the Pinning Service API in front of a Kubo node, with a `Policy` hook) and `commandPolicy`. `@team-affix/dpm/client` has `pack`, `cidOf`, `tree`, `status`, `installProject` and `ClientConfig`. The server pins and unpins in its own Kubo node; the client never does.
+`@team-affix/dpm/server` has `createServer` (the Pinning Service API in front of a Kubo node, with a `Policy` hook) and `commandPolicy`. `@team-affix/dpm/client` has `pack`, `tree`, `status`, `installProject` and `ClientConfig`. The server pins and unpins in its own Kubo node; the client never does.
 
 ## Server policies
 

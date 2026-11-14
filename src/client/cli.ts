@@ -5,7 +5,7 @@ import { Command } from 'commander';
 import { assertCid, DEPS, DpmError, readGraph, readManifest, writeManifest } from '../core';
 import { VERSION } from '../version';
 import { ClientConfig } from './config';
-import { cidOf, installProject, pack, remoteNode, status, tree } from './client';
+import { installProject, pack, remoteNode, status, tree } from './client';
 
 /**
  * `dpm`: the DPM client. Packages are folders with a `dpm.json`, identified by their IPFS CID; `dpm.json` lists
@@ -93,21 +93,10 @@ program
 program
     .command('pack')
     .description(
-        'Write the project\'s package (everything except deps/ and hidden files) to a new folder (a temporary one unless -o is given) and print the folder. Add it with: ipfs add -r -Q "$(dpm pack)"',
+        'Write the project\'s package (everything except deps/ and hidden files) to a new, read-only folder, and print the folder. Without -o, it is a temporary folder named by a random GUID. Add it with: ipfs add -r -Q "$(dpm pack)"',
     )
-    .option('-o, --out <folder>', 'write the package to this new folder instead of a temporary one')
-    .action(
-        run(async (opts: { out?: string }) => {
-            const { folder, cid } = await pack(dir(), ClientConfig.load().kubo(), opts.out);
-            console.log(folder);
-            console.error(`CID once added to IPFS: ${cid}`);
-        }),
-    );
-
-program
-    .command('cid')
-    .description("Print the project's CID, without storing anything")
-    .action(run(async () => console.log(await cidOf(dir(), ClientConfig.load().kubo()))));
+    .option('-o, --out <folder>', 'write the package to this new folder instead')
+    .action(run((opts: { out?: string }) => console.log(pack(dir(), opts.out))));
 
 program
     .command('tree')
