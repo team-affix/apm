@@ -45,6 +45,16 @@ A DPM server keeps packages and makes them available. It speaks the **IPFS Pinni
 | `GET /pins/:requestid` | One request's status |
 | `DELETE /pins/:requestid` | Withdraw a request |
 
+**What a server keeps** is answered in Kubo's own RPC format, so clients ask a server exactly what they ask their local node, and the stock `ipfs --api=<server>` command works:
+
+| Request | Meaning |
+|---|---|
+| `POST /api/v0/pin/ls[?arg=<cid>]` | the server's DPM packages: every package it keeps, dependencies included (its pins named `dpm`), and nothing else on its node. With `arg`, an error if it doesn't keep that CID. |
+| `POST /api/v0/id` | the server's node: its peer ID and the addresses to connect to |
+| `POST /api/v0/version` | the node's version (the `ipfs` command checks it first) |
+
+These are read-only, answered by the server itself. Nothing else under `/api/v0/` is answered, and nothing is passed through to the node's private RPC API.
+
 Statuses go `queued`, then `pinning`, then `pinned` or `failed`. Each carries the server's `delegates`: multiaddrs of its node. A failure's reason is in `info.reason`.
 
 **Content never travels over this API.** To push, a client sends the CID and its own node's addresses as `origins`, then connects its node to the server's `delegates`. The server's node fetches the package over IPFS, from the origins or from any other node that has it. Since the client opened the connection, this works even if the client cannot be reached from outside.

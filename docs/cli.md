@@ -13,9 +13,10 @@ A project is a folder with a `dpm.json` (`{ "deps": [CID, ...] }`). Installed de
 | `dpm init` | Create `dpm.json` |
 | `dpm add <cid...>` | Add direct dependencies |
 | `dpm remove <cid...>` | Remove direct dependencies |
-| `dpm install [-r <remote...>] [--timeout 120s]` | Fetch every dependency into `deps/<cid>/` and write `deps/graph.json`. Remotes are asked who keeps each package, and their nodes are connected to first. |
+| `dpm install [-r <remote...>] [--timeout 120s]` | Fetch every dependency into `deps/<cid>/` and write `deps/graph.json`. Remotes are asked whether they keep each package, and the nodes of those that do are connected to first. |
 | `dpm ls` | List the project's installed packages: `*` marks direct dependencies, followed by each package's top-level folders |
 | `dpm ls --node` | List every package in the local IPFS node: the pins DPM created (named `dpm`), not other applications' content |
+| `dpm ls --remote <name>` | List every package a remote DPM server keeps, dependencies included. The same request as `--node`, sent to the server. |
 | `dpm cid` | Print the project's CID, without storing anything |
 | `dpm pack` | Add the project to the local node (leaving out `deps/` and hidden files) and print its CID |
 | `dpm push [remote...] [--cid <cid>] [--wait 120]` | Pack the project (or take a CID) and ask remotes to keep it. Nothing is uploaded: each remote's node fetches it from yours. Prints each remote's verdict, with the reason if it refused. |

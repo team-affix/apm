@@ -5,7 +5,7 @@ import { Command } from 'commander';
 import { assertCid, DEPS, DpmError, readGraph, readManifest, writeManifest } from '../core';
 import { VERSION } from '../version';
 import { ClientConfig } from './config';
-import { cidOf, installProject, pack, push } from './client';
+import { cidOf, installProject, pack, push, remoteNode } from './client';
 
 /**
  * `dpm`: the DPM client. Packages are folders identified by their IPFS CID; a project's `dpm.json` lists the
@@ -119,10 +119,14 @@ program
     .command('ls')
     .description("List the project's installed packages, with what each contains at its top level")
     .option('--node', "instead, list every package in the local IPFS node (DPM's pins, not other applications')")
+    .option('--remote <name>', 'instead, list every package a remote DPM server keeps')
     .action(
-        run(async (opts: { node?: boolean }) => {
-            if (opts.node) {
-                for (const cid of await ClientConfig.load().kubo().packages()) console.log(cid);
+        run(async (opts: { node?: boolean; remote?: string }) => {
+            if (opts.node || opts.remote) {
+                const config = ClientConfig.load();
+                const [remote] = opts.remote ? config.select([opts.remote]) : [];
+                const node = remote ? remoteNode(remote) : config.kubo();
+                for (const cid of await node.packages()) console.log(cid);
                 return;
             }
             const graph = readGraph(dir());

@@ -1,7 +1,9 @@
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
-import { cidOf, installProject, pack, push, Remote } from '../src/client';
+import { cidOf, installProject, pack, push, Remote, remoteNode } from '../src/client';
 import { Kubo, PinningService, readGraph, writeManifest } from '../src/core';
 import { commandPolicy } from '../src/server';
 import { IPFS_BIN, readTree, startNode, startServer, tmpDir, writeTree } from './helpers';
@@ -204,6 +206,48 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             // ...and deletes it, so the node stops serving it.
             await server.idle();
             expect(await serverNode.hasLocally(base)).toBe(false);
+        });
+
+        it("answers in Kubo's own format which DPM packages it keeps, dependencies included", async () => {
+            const [author, serverNode] = await Promise.all([startNode(), startNode()]);
+            const { url } = await startServer({ kubo: serverNode });
+            const base = await pack(project({ 'Kant/Ethics.ul': 'duty' }), author);
+            const app = await pack(project({ 'App/Main.ul': 'm' }, [base]), author);
+            await push(app, [{ name: 'home', url }], author);
+            // Something else on the server's node, which isn't DPM's.
+            const other = await pack(project({ 'photo.txt': 'x' }), serverNode);
+            await fetch(`${serverNode.api}/api/v0/pin/add?arg=${other}&name=other-app`, { method: 'POST' });
+
+            // The same client code as for a local node.
+            const remote = remoteNode({ name: 'home', url });
+            expect((await remote.packages()).sort()).toEqual([app, base].sort());
+            expect(await remote.isPinned(base)).toBe(true);
+            expect(await remote.isPinned(other)).toBe(false);
+            expect((await remote.id()).id).toBe((await serverNode.id()).id);
+        });
+
+        it('works with the stock ipfs command, pointed at the server', async () => {
+            const [author, serverNode] = await Promise.all([startNode(), startNode()]);
+            const { url } = await startServer({ kubo: serverNode });
+            const cid = await pack(project({ 'Kant/Ethics.ul': 'duty' }), author);
+            await push(cid, [{ name: 'home', url }], author);
+            const port = new URL(url).port;
+            // Asynchronously: the server runs in this same process, so blocking would stop it from answering.
+            const { stdout: out } = await promisify(execFile)(IPFS_BIN as string, [
+                `--api=/ip4/127.0.0.1/tcp/${port}`,
+                'pin',
+                'ls',
+                '--names',
+            ]);
+            expect(out.trim()).toBe(`${cid} recursive dpm`);
+        });
+
+        it("forwards nothing else to the node's private API", async () => {
+            const { url } = await startServer({ kubo: await startNode() });
+            for (const command of ['pin/rm', 'pin/add', 'repo/gc', 'config', 'shutdown']) {
+                const res = await fetch(`${url}/api/v0/${command}`, { method: 'POST' });
+                expect(res.status).toBe(404);
+            }
         });
 
         it('rejects a request that is not for a CID', async () => {

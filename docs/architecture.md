@@ -14,7 +14,9 @@ DPM is a thin layer over IPFS. It has three parts:
                                          (content, hash-checked)                           (requests)
 ```
 
-Each side runs a Kubo node and talks to it through its private RPC API. Content moves only between Kubo nodes, over IPFS, checked block by block against its CID. The DPM server's public API carries only requests ("please keep this CID"), never content.
+Each side runs a Kubo node and talks to it through its private RPC API. Content moves only between Kubo nodes, over IPFS, checked block by block against its CID. The DPM server's public API carries only requests ("please keep this CID") and answers about what it keeps, never content.
+
+The server answers "what do you keep?" in Kubo's own RPC format (`pin/ls`, `id`), limited to its DPM packages. So the client asks a remote server exactly what it asks its own node: `new Kubo(url).packages()` works against both.
 
 ## What DPM does, and what it leaves to others
 

@@ -78,7 +78,12 @@ export class Kubo {
     }
 
     async version(): Promise<string> {
-        return (await this.json<{ Version: string }>('version')).Version;
+        return (await this.versionInfo()).Version;
+    }
+
+    /** The node's version report, as Kubo gives it (the `ipfs` command checks it before anything else). */
+    versionInfo(): Promise<{ Version: string } & Record<string, unknown>> {
+        return this.json('version');
     }
 
     async id(): Promise<NodeInfo> {

@@ -4,7 +4,7 @@ import fs from 'fs';
 import http from 'http';
 import os from 'os';
 import path from 'path';
-import { fetchTree, Graph, install, isCid, Kubo, Pin, PinState, PinStatus } from '../core';
+import { fetchTree, Graph, install, isCid, Kubo, Pin, PIN_NAME, PinState, PinStatus } from '../core';
 
 /**
  * A DPM server: the IPFS Pinning Service API in front of a Kubo node, plus a policy deciding what to keep.
@@ -148,11 +148,40 @@ export async function createServer(opts: ServerOptions): Promise<DpmServer> {
             req.on('error', reject);
         });
 
+    /**
+     * A read-only view of the node in Kubo's own RPC format, so clients ask a server exactly what they ask
+     * their local node: `pin/ls` (only DPM's packages: the pins named `dpm`), `id` (the node's public
+     * addresses) and `version` (which the `ipfs` command checks first). Nothing else is answered, and nothing is
+     * passed through to the node's real RPC API, which stays private.
+     */
+    async function kuboView(url: URL, res: http.ServerResponse) {
+        const kuboError = (message: string) => send(res, 500, { Message: message, Code: 0, Type: 'error' });
+        const command = url.pathname.slice('/api/v0/'.length);
+        if (command === 'version') return send(res, 200, await kubo.versionInfo());
+        if (command === 'id') {
+            const node = await kubo.id();
+            return send(res, 200, { ID: node.id, Addresses: delegates });
+        }
+        if (command === 'pin/ls') {
+            const type = url.searchParams.get('type') ?? 'all';
+            if (!['all', 'recursive'].includes(type)) return send(res, 200, { Keys: {} });
+            const packages = new Set(await kubo.packages());
+            const asked = url.searchParams.getAll('arg');
+            for (const cid of asked) if (!packages.has(cid)) return kuboError(`path '${cid}' is not pinned`);
+            const keys = asked.length ? asked : [...packages];
+            return send(res, 200, {
+                Keys: Object.fromEntries(keys.map((cid) => [cid, { Type: 'recursive', Name: PIN_NAME }])),
+            });
+        }
+        return send(res, 404, { Message: `${command}: not available on a DPM server`, Code: 0, Type: 'error' });
+    }
+
     const server = http.createServer((req, res) => {
         void (async () => {
             const url = new URL(req.url ?? '/', 'http://dpm');
             const parts = url.pathname.split('/').filter(Boolean);
             try {
+                if (url.pathname.startsWith('/api/v0/')) return await kuboView(url, res);
                 if (parts[0] !== 'pins' || parts.length > 2) return fail(res, 404, 'NOT_FOUND');
 
                 if (parts.length === 1 && req.method === 'GET') {
