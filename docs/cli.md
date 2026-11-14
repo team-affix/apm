@@ -25,14 +25,14 @@ A project is a folder with a `dpm.json` (`{ "deps": [CID, ...] }`). Installed de
 
 | Command | Description |
 |---|---|
-| `dpm pin <cid...> [--timeout 120s]` | Pin packages and their whole trees (every package their `dpm.json` files name), so your node keeps them. The whole tree is fetched first and pinned only if all of it arrived. Works anywhere: no project needed. (`ipfs pin add <cid>` would pin only the package's own folder, not its dependencies.) |
+| `dpm pin <cid...> [--with-deps] [--timeout 120s]` | Pin packages, labelled as DPM's, so your node keeps them and `dpm ls --node` lists them. With `--with-deps`, also every package their `dpm.json` files name, recursively, which plain `ipfs pin add` can't do. Everything is fetched first and pinned only if all of it arrived. Works anywhere: no project needed. |
 
 Install, check, then pin:
 
 ```bash
 dpm install        # fetch into deps/, nothing pinned
 unilog check       # decide
-dpm pin <cid>      # keep what you checked
+dpm pin <cid> --with-deps    # keep what you checked, with its whole tree
 ```
 
 ## Remotes
