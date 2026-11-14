@@ -39,7 +39,8 @@ BASE=$(dpm push home | head -1)   # prints the CID, then "home: pinned"
 mkdir ../app && cd ../app
 dpm init
 dpm add $BASE
-dpm install                        # writes deps/<cid>/Kant/Ethics.ul and deps/graph.json
+dpm install                        # writes deps/<cid>/Kant/Ethics.ul and deps/graph.json (nothing pinned)
+dpm pin $BASE                      # after checking it: keep it, and its whole tree, in your node
 ```
 
 See the [protocol spec](docs/protocol.md), the [architecture](docs/architecture.md) (library, server policies), the [CLI reference](docs/cli.md) and the [engineering principles](docs/engineering.md).

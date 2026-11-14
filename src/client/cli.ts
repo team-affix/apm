@@ -5,7 +5,7 @@ import { Command } from 'commander';
 import { assertCid, DEPS, DpmError, readGraph, readManifest, writeManifest } from '../core';
 import { VERSION } from '../version';
 import { ClientConfig } from './config';
-import { cidOf, installProject, pack, push, remoteNode } from './client';
+import { cidOf, installProject, pack, pinTree, push, remoteNode } from './client';
 
 /**
  * `dpm`: the DPM client. Packages are folders identified by their IPFS CID; a project's `dpm.json` lists the
@@ -69,7 +69,9 @@ program
 
 program
     .command('install')
-    .description('Fetch every dependency, by CID, into deps/<cid>/, and write deps/graph.json')
+    .description(
+        'Fetch every dependency, by CID, into deps/<cid>/, and write deps/graph.json. Nothing is pinned: check them, then run dpm pin <cid>.',
+    )
     .option('-r, --remote <name...>', 'remotes to ask for packages (default: all)')
     .option('--timeout <duration>', 'how long fetching one package may take, e.g. 60s', '120s')
     .action(
@@ -78,6 +80,20 @@ program
             const graph = await installProject(dir(), config.kubo(opts.timeout), config.select(opts.remote));
             const n = Object.keys(graph.packages).length;
             console.log(`installed ${n} package${n === 1 ? '' : 's'} into ${path.join(dir(), DEPS)}`);
+        }),
+    );
+
+program
+    .command('pin')
+    .description(
+        'Pin packages and their whole trees, so your IPFS node keeps them. Run it after checking them (e.g. unilog check).',
+    )
+    .argument('<cid...>')
+    .option('--timeout <duration>', 'how long fetching one package may take, e.g. 60s', '120s')
+    .action(
+        run(async (cids: string[], opts: { timeout: string }) => {
+            const pinned = await pinTree(cids.map(assertCid), ClientConfig.load().kubo(opts.timeout));
+            console.log(`pinned ${pinned.length} package${pinned.length === 1 ? '' : 's'}`);
         }),
     );
 

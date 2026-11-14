@@ -3,7 +3,7 @@ import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
-import { cidOf, installProject, pack, push, Remote, remoteNode } from '../src/client';
+import { cidOf, installProject, pack, pinTree, push, Remote, remoteNode } from '../src/client';
 import { Kubo, PinningService, readGraph, writeManifest } from '../src/core';
 import { commandPolicy } from '../src/server';
 import { IPFS_BIN, readTree, startNode, startServer, tmpDir, writeTree } from './helpers';
@@ -77,6 +77,31 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
                 [`${bob}/Bob/Beliefs.ul`]: 'b',
             });
             expect(readGraph(app)).toEqual(graph);
+        });
+
+        it('installs without pinning; dpm pin <cid> keeps a package and its whole tree', async () => {
+            const { author, home, reader } = await world();
+            const base = await pack(project({ 'Kant/Ethics.ul': 'duty' }), author);
+            const alice = await pack(project({ 'Alice/Beliefs.ul': 'a' }, [base]), author);
+            await push(alice, [home], author, 60_000, true);
+            await installProject(project({}, [alice]), reader, [home]);
+            // Installed, and cached in the node, but not pinned.
+            expect(await reader.hasLocally(alice)).toBe(true);
+            expect(await reader.pins()).not.toEqual(expect.arrayContaining([alice]));
+            expect(await reader.pins()).not.toEqual(expect.arrayContaining([base]));
+            // ...the user runs their checks here, then pins Alice's package: Kant's comes with it.
+            expect((await pinTree([alice], reader)).sort()).toEqual([alice, base].sort());
+            expect((await reader.packages()).sort()).toEqual([alice, base].sort());
+        });
+
+        it('pins nothing with dpm pin when the tree cannot be completed', async () => {
+            const { author, reader } = await world();
+            const missing = await cidOf(project({ 'Nowhere/X.ul': 'gone' }), author);
+            const present = await pack(project({ 'Kant/Ethics.ul': 'duty' }, [missing]), author);
+            const quick = new Kubo(reader.api, '2s');
+            await quick.connect((await author.id()).addresses[0] as string);
+            await expect(pinTree([present], quick)).rejects.toThrow(`Could not fetch ${missing}`);
+            expect(await reader.pins()).not.toContain(present);
         });
 
         it('removes packages no longer needed when reinstalling', async () => {
@@ -207,6 +232,7 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             const cid = await pack(project({ 'Kant/Ethics.ul': 'duty' }), author);
             await push(cid, [{ name: 'home', url }], author);
             await installProject(project({}, [cid]), reader, [{ name: 'home', url }]);
+            await pinTree([cid], reader);
             expect(await reader.packages()).toEqual([cid]);
             // Another application pins the same content first on a fresh node: DPM leaves its pin alone.
             const shared = await startNode();

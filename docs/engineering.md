@@ -14,8 +14,9 @@ anyone who asks. So:
   - A server fetches a pushed package's whole tree *without pinning*, runs its policy (e.g. `unilog check`), and
     pins only if the package passes. A refused package was never pinned, so there is nothing to undo, and no
     chance that a failed undo leaves invalid content hosted.
-  - `dpm install` fetches the whole tree *without pinning*, and pins only once every package has arrived. A
-    tree that can't be completed leaves nothing pinned.
+  - `dpm install` never pins. The user checks what was installed (e.g. `unilog check`), then decides to keep it
+    with `dpm pin <cid>`, which fetches the whole tree first and pins only if all of it arrived. A tree that
+    can't be completed leaves nothing pinned.
 - **Fetching is not keeping.** Fetched data is cached like anything a Kubo node downloads, until garbage
   collection. That's Kubo's normal behaviour; DPM doesn't add work to fight it.
 - **Unpinning is for decisions, not for recovering from a premature pin.** It happens when someone withdraws a

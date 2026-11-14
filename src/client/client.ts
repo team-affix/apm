@@ -77,3 +77,18 @@ export function installProject(dir: string, kubo: Kubo, remotes: readonly Remote
         },
     });
 }
+
+/**
+ * Pins packages and their whole trees (every package their dpm.json files name, recursively), so the node keeps
+ * them. Plain `ipfs pin add` would pin only each package's own folder, not the packages it depends on.
+ *
+ * The whole tree is fetched first, and pinned only if all of it arrived: a tree that can't be completed is not
+ * partly pinned. Pinning is a separate step from `install` on purpose: install, check (e.g. `unilog check`),
+ * then decide to keep.
+ */
+export async function pinTree(cids: readonly string[], kubo: Kubo): Promise<string[]> {
+    const graph = await fetchTree(kubo, cids);
+    const all = Object.keys(graph.packages);
+    for (const cid of all) await kubo.pin(cid);
+    return all;
+}

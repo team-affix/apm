@@ -53,7 +53,7 @@ export function commandPolicy(command: string): Policy {
         try {
             const dir = path.join(work, 'package');
             await kubo.exportTo(cid, dir);
-            await install(dir, kubo, { pin: false });
+            await install(dir, kubo);
             const { code, output } = await new Promise<{ code: number | null; output: string }>((resolve) => {
                 const child = spawn(command, { cwd: dir, shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
                 let output = '';
