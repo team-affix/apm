@@ -1,14 +1,15 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { DpmError, Kubo, PinningService } from '../core';
+import { DpmError, Kubo } from '../core';
 
-/** A remote DPM server (or any IPFS pinning service). */
+/**
+ * A remote DPM server, which `dpm` only reads from: which packages it keeps, and its node's addresses. To push to
+ * it, use IPFS's own remote pinning (`ipfs pin remote add`).
+ */
 export interface Remote {
     name: string;
     url: string;
-    /** Access token, if the server requires one to add pins. */
-    token?: string;
 }
 
 interface ConfigFile {
@@ -19,7 +20,8 @@ interface ConfigFile {
 
 /**
  * The client's configuration: `$DPM_HOME/config.json`, by default `~/.dpm/client/config.json`. Packages
- * themselves live in the local Kubo node, not here.
+ * themselves live in IPFS, not here; `dpm` only reads from IPFS, and all changes to what a node keeps are made
+ * with the `ipfs` command.
  */
 export class ClientConfig {
     private constructor(
@@ -77,5 +79,3 @@ export class ClientConfig {
         });
     }
 }
-
-export const service = (r: Remote) => new PinningService(r.url, r.token);

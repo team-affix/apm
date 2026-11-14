@@ -15,14 +15,14 @@ export interface Graph {
 export const DEPS = 'deps';
 export const GRAPH = 'graph.json';
 
-/** The dependencies of a package already fetched: its dpm.json, or none. */
+/** The dependencies of a package already fetched, from its dpm.json. Without one, it isn't a DPM package. */
 export async function depsOf(kubo: Kubo, cid: string): Promise<readonly string[]> {
     let text: string;
     try {
         text = (await kubo.cat(`${cid}/${MANIFEST}`)).toString('utf8');
     } catch (e) {
-        // A package without dpm.json has no dependencies.
-        if (e instanceof KuboError && /no link named|not found|does not exist/i.test(e.message)) return [];
+        if (e instanceof KuboError && /no link named|not found|does not exist/i.test(e.message))
+            throw new ManifestError(`${cid} is not a DPM package: it has no ${MANIFEST}`);
         throw e;
     }
     return parseManifest(text, `${MANIFEST} of ${cid}`).deps;
@@ -67,7 +67,7 @@ export async function fetchTree(kubo: Kubo, roots: readonly string[], opts: Fetc
  * deep it is in the tree), removes packages no longer needed, and writes `deps/graph.json`.
  *
  * Nothing is pinned. Fetched packages are cached like anything the node downloads; the user decides whether to
- * keep them after checking them (`dpm pin`). See docs/engineering.md.
+ * keep them after checking them (`dpm tree <cid> | xargs -n1 ipfs pin add`). See docs/engineering.md.
  *
  * DPM gives every package its own folder, named by CID, so two packages never collide on disk and the same
  * package is installed once. What packages mean, and what to do if two of them clash, is up to the tools that

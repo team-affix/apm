@@ -1,49 +1,39 @@
-import { fetchTree, Graph, install, Kubo, PinStatus, readPackageFolder } from '../core';
-import { Remote, service } from './config';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { fetchTree, Graph, install, Kubo, PinningService, PinStatus, readManifest, readPackageFolder } from '../core';
+import { Remote } from './config';
 
-/** Adds a project folder to the local Kubo node (leaving out `deps/` and hidden files) and returns its CID. */
-export function pack(dir: string, kubo: Kubo): Promise<string> {
-    return kubo.addFolder(readPackageFolder(dir));
+/**
+ * Writes the package a project folder makes (everything except `deps/` and hidden files) to a fresh temporary
+ * folder, and returns that folder and the CID it will have once added to IPFS. Nothing is stored in IPFS: add it
+ * with `ipfs add -r <folder>`.
+ */
+export async function pack(dir: string, kubo: Kubo): Promise<{ folder: string; cid: string }> {
+    readManifest(dir);
+    const entries = readPackageFolder(dir);
+    const folder = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dpm-pack-')), 'package');
+    fs.mkdirSync(folder);
+    for (const e of entries) {
+        const target = path.join(folder, ...e.path.split('/'));
+        if (e.dir) fs.mkdirSync(target, { recursive: true });
+        else fs.writeFileSync(target, e.content);
+    }
+    return { folder, cid: await kubo.addFolder(entries, false) };
 }
 
-/** A package's CID, computed without storing anything. */
+/** A project's CID, computed without storing anything. */
 export function cidOf(dir: string, kubo: Kubo): Promise<string> {
+    readManifest(dir);
     return kubo.addFolder(readPackageFolder(dir), false);
 }
 
-export interface PushResult {
-    remote: string;
-    cid: string;
-    status: PinStatus;
-}
-
 /**
- * Asks remotes to keep a package (with `withDeps`, also each package it depends on, each as its own request).
- * Nothing is uploaded: each remote's node fetches the content from ours over IPFS. Our node first makes sure it
- * holds the whole tree, then connects out to each remote's node, so the remote can fetch over that connection
- * even if ours can't be reached from outside.
+ * A package and every package it depends on, recursively, each once: the package first. For example, to pin a
+ * whole tree: `dpm tree <cid> | xargs -n1 ipfs pin add`.
  */
-export async function push(
-    cid: string,
-    remotes: readonly Remote[],
-    kubo: Kubo,
-    timeoutMs = 120_000,
-    withDeps = false,
-): Promise<PushResult[]> {
-    const graph = await fetchTree(kubo, [cid]);
-    // Dependencies first, the package itself last.
-    const cids = withDeps ? [...Object.keys(graph.packages).filter((c) => c !== cid), cid] : [cid];
-    const origins = (await kubo.id()).addresses;
-    const results: PushResult[] = [];
-    for (const remote of remotes) {
-        const s = service(remote);
-        for (const c of cids) {
-            const requested = await s.add({ cid: c, origins });
-            for (const d of requested.delegates) await kubo.connect(d).catch(() => undefined);
-            results.push({ remote: remote.name, cid: c, status: await s.wait(requested.requestid, timeoutMs) });
-        }
-    }
-    return results;
+export async function tree(cid: string, kubo: Kubo): Promise<string[]> {
+    return Object.keys((await fetchTree(kubo, [cid])).packages);
 }
 
 /**
@@ -79,16 +69,20 @@ export function installProject(dir: string, kubo: Kubo, remotes: readonly Remote
 }
 
 /**
- * Pins packages, named as DPM's, so the node keeps them. With `withDeps`, also every package their dpm.json
- * files name, recursively (plain `ipfs pin add` can't: dependencies aren't inside a package's folder).
- *
- * Everything is fetched first, and pinned only if all of it arrived: a tree that can't be completed is not
- * partly pinned. Pinning is a separate step from `install` on purpose: install, check (e.g. `unilog check`),
- * then decide to keep.
+ * What each remote decided about a CID: its latest pin request for it, with the reason if it refused. Read-only.
+ * (`ipfs pin remote add` reports a refusal, but not the server's reason.)
  */
-export async function pinPackages(cids: readonly string[], kubo: Kubo, withDeps = false): Promise<string[]> {
-    const all = withDeps ? Object.keys((await fetchTree(kubo, cids)).packages) : [...new Set(cids)];
-    if (!withDeps) for (const cid of all) await kubo.fetch(cid);
-    for (const cid of all) await kubo.pin(cid);
-    return all;
+export async function status(
+    cid: string,
+    remotes: readonly Remote[],
+): Promise<{ remote: string; status?: PinStatus }[]> {
+    const out: { remote: string; status?: PinStatus }[] = [];
+    for (const r of remotes) {
+        const found = await new PinningService(r.url).list({
+            cid: [cid],
+            status: ['queued', 'pinning', 'pinned', 'failed'],
+        });
+        out.push({ remote: r.name, ...(found[0] && { status: found[0] }) });
+    }
+    return out;
 }

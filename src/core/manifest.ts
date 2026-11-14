@@ -3,8 +3,9 @@ import path from 'path';
 import { ManifestError } from './errors';
 
 /**
- * A package is any directory. Its `dpm.json` lists the packages it depends on, by CID, and nothing else:
- * DPM has no package names. A package's name is its CID, and what is inside it (folder names included) is
+ * A package is a directory with a `dpm.json` at its top level, listing the packages it depends on, by CID, and
+ * nothing else (`{ "deps": [] }` for none). That file is what makes a folder a DPM package: since it is part of
+ * the content, any node can tell a DPM package by looking inside it. DPM has no package names. A package's name is its CID, and what is inside it (folder names included) is
  * part of its content and so part of its CID.
  */
 export interface Manifest {
@@ -55,10 +56,11 @@ export function parseManifest(text: string, where: string): Manifest {
 
 export const showManifest = (m: Manifest): string => JSON.stringify({ deps: m.deps }, null, 4) + '\n';
 
-/** Reads a project's dpm.json. A directory without one is a package with no dependencies. */
+/** Reads a project's dpm.json. A directory without one is not a DPM project. */
 export function readManifest(dir: string): Manifest {
     const file = path.join(dir, MANIFEST);
-    if (!fs.existsSync(file)) return { deps: [] };
+    if (!fs.existsSync(file))
+        throw new ManifestError(`${dir} is not a DPM project: it has no ${MANIFEST} (run 'dpm init')`);
     return parseManifest(fs.readFileSync(file, 'utf8'), file);
 }
 

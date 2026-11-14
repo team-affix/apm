@@ -28,9 +28,12 @@ describe('dpm.json', () => {
         expect(() => parseManifest(text, 'dpm.json')).toThrow(msg);
     });
 
-    it('reads a missing dpm.json as no dependencies, and writes it canonically', () => {
+    it("refuses a folder without dpm.json: it isn't a DPM package", () => {
+        expect(() => readManifest(tmpDir())).toThrow(/is not a DPM project: it has no dpm.json/);
+    });
+
+    it('writes dpm.json canonically', () => {
         const dir = tmpDir();
-        expect(readManifest(dir)).toEqual({ deps: [] });
         writeManifest(dir, { deps: [B, A] });
         expect(readManifest(dir)).toEqual({ deps: [A, B] });
     });

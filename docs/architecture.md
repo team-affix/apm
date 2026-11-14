@@ -16,7 +16,9 @@ DPM is a thin layer over IPFS. It has three parts:
 
 Each side runs a Kubo node and talks to it through its private RPC API. Content moves only between Kubo nodes, over IPFS, checked block by block against its CID. The DPM server's public API carries only requests ("please keep this CID") and answers about what it keeps, never content.
 
-The server answers "what do you keep?" in Kubo's own RPC format (`pin/ls`, `id`), limited to its DPM packages. So the client asks a remote server exactly what it asks its own node: `new Kubo(url).packages()` works against both.
+The server answers "what do you keep?" in Kubo's own RPC format (`pin/ls`, `id`), limited to its DPM packages. So the client asks a remote server exactly what it asks its own node: `new Kubo(url).pins()` and `isPinned` work against both.
+
+**The `dpm` client only reads from IPFS.** It fetches, exports and lists, but never adds, pins or deletes. Everything that changes what a node keeps is done with Kubo's own `ipfs` command: `ipfs add` for publishing (of the folder `dpm pack` writes), `ipfs pin add` for keeping, and `ipfs pin remote add` for pushing to a server. `dpm` supplies what those commands can't know: which files make up the package (`dpm pack`) and which CIDs make up its tree (`dpm tree`).
 
 ## What DPM does, and what it leaves to others
 
@@ -30,13 +32,13 @@ DPM has no package names, so it has no name conflicts, no overrides and no resol
 
 | Part | What it does |
 |---|---|
-| `Kubo` | A client for a Kubo node's RPC API: `addFolder` (with the fixed import settings), `cat`, `pin`, `unpin`, `pins`, `connect`, `exportTo`, `id`, `version` |
+| `Kubo` | A client for a Kubo node's RPC API: `addFolder` (with the fixed import settings), `cat`, `fetch`, `pin`, `unpin`, `pins`, `packages` (pinned folders with a `dpm.json`), `connect`, `exportTo`, `gc`, `id`, `version` |
 | `readPackageFolder` | A project folder's files, leaving out `deps/` and hidden entries |
 | `manifest`, `parseManifest`, `readManifest`, `writeManifest`, `isCid` | `dpm.json` |
 | `fetchTree`, `install`, `readGraph` | Fetch a tree by CID (each package once), and install it flat |
 | `PinningService` | A client for the Pinning Service API: `add`, `get`, `list`, `remove`, `wait` |
 
-`@team-affix/dpm/server` has `createServer` (the Pinning Service API in front of a Kubo node, with a `Policy` hook) and `commandPolicy`. `@team-affix/dpm/client` has `pack`, `cidOf`, `push`, `installProject` and `ClientConfig`.
+`@team-affix/dpm/server` has `createServer` (the Pinning Service API in front of a Kubo node, with a `Policy` hook) and `commandPolicy`. `@team-affix/dpm/client` has `pack`, `cidOf`, `tree`, `status`, `installProject` and `ClientConfig`. The server pins and unpins in its own Kubo node; the client never does.
 
 ## Server policies
 

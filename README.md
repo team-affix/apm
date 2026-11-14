@@ -5,7 +5,8 @@ DPM is a thin layer over [IPFS](https://ipfs.tech) for packages that depend on e
 - A **package is a folder**, and its **ID is the folder's IPFS CID**. There are no package names: the folder's contents, folder names included, are what it is.
 - A package's `dpm.json` lists the packages it depends on, **by CID only**, never by location. Any IPFS node holding the content is as good a source as any other, and every block is checked against its CID.
 - `dpm install` fetches the whole tree and lays it out **flat**, as `deps/<cid>/`, each package once, plus `deps/graph.json`. Since a CID fixes its entire dependency tree, there is nothing to resolve: DPM has no names, no overrides and no conflicts. What packages mean, and what to do when two of them clash, is left to the tools that use them.
-- **Servers** keep packages and decide what to keep. They speak the standard IPFS Pinning Service API. Pushing never uploads anything: you send the CID, and the server's IPFS node fetches it from yours.
+- **Servers** keep packages and decide what to keep. They speak the standard IPFS Pinning Service API, so you push with Kubo's own `ipfs pin remote add`. Pushing never uploads anything: you send the CID, and the server's IPFS node fetches it from yours.
+- **`dpm` only reads from IPFS.** Adding, pinning and pushing are done with the `ipfs` command; `dpm` tells it what to add (`dpm pack`) and which CIDs make up a tree (`dpm tree`).
 
 **DPM is a protocol** ([spec](docs/protocol.md)): every server shares the package format, the install rules and the API, and each sets its own acceptance policy. There is **one client, `dpm`**, for every kind of content and every server. Checking content is the job of the content's own tools: a Unilog server is the reference server configured to run `unilog check`.
 
@@ -17,7 +18,7 @@ Requires Node.js 20+ and [Kubo](https://github.com/ipfs/kubo/releases), the stan
 
 ```bash
 npm install -g https://github.com/team-affix/apm/releases/download/v0.2.0/team-affix-dpm-0.2.0.tgz
-ipfs init --profile=unixfs-v1-2025     # once
+ipfs init --profile=unixfs-v1-2025     # once (existing node: ipfs config profile apply unixfs-v1-2025)
 ipfs daemon                             # keep it running
 ```
 
@@ -27,20 +28,22 @@ ipfs daemon                             # keep it running
 # run a server (next to its own Kubo node)
 DPM_KUBO_API=http://127.0.0.1:5001 PORT=3000 dpm-server &
 
-dpm remote add home http://localhost:3000
+dpm remote add home http://localhost:3000                      # for dpm to read from
+ipfs pin remote service add home http://localhost:3000 none    # for ipfs to push to
 
 # publish a package
 mkdir base && cd base
 dpm init
 mkdir Kant && echo "duty : \X. good X => ought X;" > Kant/Ethics.ul
-BASE=$(dpm push home | head -1)   # prints the CID, then "home: pinned"
+BASE=$(ipfs add -r -Q "$(dpm pack)")         # add it to your node
+ipfs pin remote add --service=home $BASE      # push it: the server fetches it from your node
 
 # depend on it
 mkdir ../app && cd ../app
 dpm init
 dpm add $BASE
-dpm install                        # writes deps/<cid>/Kant/Ethics.ul and deps/graph.json (nothing pinned)
-dpm pin $BASE --with-deps          # after checking it: keep it, and its whole tree, in your node
+dpm install                                   # writes deps/<cid>/Kant/Ethics.ul and deps/graph.json (nothing pinned)
+dpm tree $BASE | xargs -n1 ipfs pin add       # after checking it: keep it, and its whole tree, in your node
 ```
 
 See the [protocol spec](docs/protocol.md), the [architecture](docs/architecture.md) (library, server policies), the [CLI reference](docs/cli.md) and the [engineering principles](docs/engineering.md).
@@ -50,7 +53,7 @@ See the [protocol spec](docs/protocol.md), the [architecture](docs/architecture.
 ```ts
 import { Kubo, install, PinningService } from '@team-affix/dpm';
 import { createServer, commandPolicy } from '@team-affix/dpm/server';
-import { pack, push, installProject } from '@team-affix/dpm/client';
+import { pack, tree, installProject } from '@team-affix/dpm/client';
 ```
 
 ## Releases
@@ -80,7 +83,7 @@ Layout:
 ```
 src/core     dpm.json, the Kubo RPC client, install, the Pinning Service API client
 src/server   the Pinning Service API server with policies (dpm-server)
-src/client   pack / push / install, client config, and the CLI (dpm)
+src/client   pack / tree / install, client config, and the CLI (dpm)
 test/        unit tests, and end-to-end tests with real Kubo nodes and servers
 docs/        protocol spec, architecture, CLI and philosophy
 ```

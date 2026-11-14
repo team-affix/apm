@@ -1,45 +1,60 @@
 # CLI reference
 
-`dpm` drives your local IPFS node (Kubo) through its RPC API: `http://127.0.0.1:5001` by default, set with `dpm node --set <url>` or `DPM_KUBO_API`. Settings and remotes are in `~/.dpm/client/config.json` (override the folder with `DPM_HOME`). Packages themselves live in the IPFS node.
+`dpm` does package management and **only reads from IPFS**: it never adds, pins or deletes anything in any node. Every change to what a node keeps is made with the `ipfs` command (Kubo):
 
-Start the node first: `ipfs init --profile=unixfs-v1-2025` (once), then `ipfs daemon`.
+| To | Run |
+|---|---|
+| add your project to your node | `ipfs add -r -Q "$(dpm pack)"` |
+| pin a package in your node | `ipfs pin add <cid>` |
+| pin a package and its whole tree | `dpm tree <cid> \| xargs -n1 ipfs pin add` |
+| register a DPM server, once | `ipfs pin remote service add <server> <url> <token>` (any token if the server needs none) |
+| push a package to a server | `ipfs pin remote add --service=<server> <cid>` |
+| push a package and its whole tree | `dpm tree <cid> \| xargs -n1 ipfs pin remote add --service=<server>` |
+
+`dpm` talks to your local node through its RPC API: `http://127.0.0.1:5001` by default, set with `dpm node --set <url>` or `DPM_KUBO_API`. Settings and remotes are in `~/.dpm/client/config.json` (override the folder with `DPM_HOME`).
+
+Start the node first: `ipfs init --profile=unixfs-v1-2025` (once), then `ipfs daemon`. For an existing node, `ipfs config profile apply unixfs-v1-2025`. The profile makes `ipfs add` give the same CID as `dpm cid`.
 
 ## Projects
 
-A project is a folder with a `dpm.json` (`{ "deps": [CID, ...] }`). Installed dependencies go in `deps/<cid>/`, with `deps/graph.json`. All commands work on the current directory, or the one given with `-C <dir>`.
+A project is a folder with a `dpm.json` (`{ "deps": [CID, ...] }`); the folder is a DPM package because it has one. Installed dependencies go in `deps/<cid>/`, with `deps/graph.json`. Project commands work on the current directory, or the one given with `-C <dir>`.
 
 | Command | Description |
 |---|---|
 | `dpm init` | Create `dpm.json` |
-| `dpm add <cid...>` | Add direct dependencies |
-| `dpm remove <cid...>` | Remove direct dependencies |
+| `dpm add <cid...>` | Add direct dependencies to `dpm.json` |
+| `dpm remove <cid...>` | Remove direct dependencies from `dpm.json` |
 | `dpm install [-r <remote...>] [--timeout 120s]` | Fetch every dependency into `deps/<cid>/` and write `deps/graph.json`. Remotes are asked whether they keep each package, and the nodes of those that do are connected to first. Nothing is pinned: fetched packages are cached like anything your node downloads. |
 | `dpm ls` | List the project's installed packages: `*` marks direct dependencies, followed by each package's top-level folders |
-| `dpm ls --node` | List every package in the local IPFS node: the pins DPM created (named `dpm`), not other applications' content |
-| `dpm ls --remote <name>` | List every package a remote DPM server keeps. The same request as `--node`, sent to the server. |
+| `dpm pack` | Write the project's package (everything except `deps/` and hidden files) to a new temporary folder, and print the folder's path. The CID it will have once added is printed on stderr. |
 | `dpm cid` | Print the project's CID, without storing anything |
-| `dpm pack` | Add the project to the local node (leaving out `deps/` and hidden files) and print its CID |
-| `dpm push [remote...] [--cid <cid>] [--with-deps] [--wait 120]` | Pack the project (or take a CID) and ask remotes to keep it. Nothing is uploaded: each remote's node fetches it from yours. Servers usually keep only what is pushed, so `--with-deps` also pushes each package it depends on, as its own request. Prints each remote's verdict, with the reason if it refused. |
 
-## Pinning
+## Packages
+
+These take a CID and work anywhere: no project needed.
 
 | Command | Description |
 |---|---|
-| `dpm pin <cid...> [--with-deps] [--timeout 120s]` | Pin packages, labelled as DPM's, so your node keeps them and `dpm ls --node` lists them. With `--with-deps`, also every package their `dpm.json` files name, recursively, which plain `ipfs pin add` can't do. Everything is fetched first and pinned only if all of it arrived. Works anywhere: no project needed. |
+| `dpm tree <cid> [--timeout 120s]` | Print the package and every package it depends on, recursively, one CID per line, each once. Everything is fetched (not pinned) before anything is printed, so if the tree can't be completed, nothing is printed. |
+| `dpm ls --node` | List every DPM package pinned in your node: its pinned folders that contain a `dpm.json` |
+| `dpm ls --remote <name>` | List every DPM package a remote DPM server keeps. The same request as for your node, sent to the server. |
+| `dpm status <cid> [-r <remote...>]` | Show what each remote decided about a package you pushed: `pinned`, `failed` with the server's reason, or no request. (`ipfs pin remote add` reports a refusal, but not why.) |
 
 Install, check, then pin:
 
 ```bash
-dpm install        # fetch into deps/, nothing pinned
-unilog check       # decide
-dpm pin <cid> --with-deps    # keep what you checked, with its whole tree
+dpm install                               # fetch into deps/, nothing pinned
+unilog check                              # decide
+dpm tree <cid> | xargs -n1 ipfs pin add   # keep what you checked, with its whole tree
 ```
 
 ## Remotes
 
+Remotes are DPM servers `dpm` reads from: when installing, and for `dpm ls --remote` and `dpm status`. Pushing to a server is done by Kubo, which has its own list (`ipfs pin remote service add`).
+
 | Command | Description |
 |---|---|
-| `dpm remote add <name> <url> [--token <token>]` | Add a DPM server (any IPFS pinning service works) |
+| `dpm remote add <name> <url>` | Add a DPM server |
 | `dpm remote remove <name>` | Remove one |
 | `dpm remote ls` | List them |
 | `dpm node [--set <url>]` | Show the local node (version, peer ID, addresses), or set its RPC API URL |

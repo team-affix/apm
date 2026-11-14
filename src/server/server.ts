@@ -4,7 +4,7 @@ import fs from 'fs';
 import http from 'http';
 import os from 'os';
 import path from 'path';
-import { fetchTree, Graph, install, isCid, Kubo, Pin, PIN_NAME, PinState, PinStatus } from '../core';
+import { fetchTree, Graph, install, isCid, Kubo, Pin, PinState, PinStatus } from '../core';
 
 /**
  * A DPM server: the IPFS Pinning Service API in front of a Kubo node, plus a policy deciding what to keep.
@@ -31,8 +31,9 @@ export interface ServerOptions {
     policy?: Policy;
     /**
      * Pin each package's dependencies too, so everything listed can be installed from this server alone
-     * (default: false). Either way, the whole tree is fetched (not pinned) so the policy can look at it, and only
-     * what was asked for is pinned: a dependency is kept only if it was pushed itself (`dpm push --with-deps`).
+     * (default: false). Either way, the whole tree is fetched (not pinned) so the policy can look at it. Without
+     * this, only what was asked for is pinned: a dependency is kept only if it was pushed itself
+     * (`dpm tree <cid> | xargs -n1 ipfs pin remote add --service=<server>`).
      * Fetched data that isn't pinned is like any data a Kubo node downloads: kept until garbage collection.
      */
     keepDependencies?: boolean;
@@ -99,11 +100,13 @@ export async function createServer(opts: ServerOptions): Promise<DpmServer> {
     const collect = () => run(() => kubo.gc());
     for (const r of requests) if (r.status === 'queued' || r.status === 'pinning') enqueue(r);
 
-    /** Unpins whatever of `cids` no pinned request still holds. Pins DPM didn't create are left alone. */
+    /**
+     * Unpins whatever of `cids` no pinned request still holds. A server should have a Kubo node of its own: a pin
+     * can't say who else relies on it.
+     */
     async function release(cids: readonly string[]) {
         const keep = new Set(requests.filter((r) => r.status === 'pinned').flatMap((r) => r.tree ?? []));
-        const ours = new Set(await kubo.packages());
-        for (const cid of cids) if (!keep.has(cid) && ours.has(cid)) await kubo.unpin(cid).catch(() => undefined);
+        for (const cid of cids) if (!keep.has(cid)) await kubo.unpin(cid).catch(() => undefined);
     }
 
     async function processRequest(r: Request) {
@@ -160,7 +163,7 @@ export async function createServer(opts: ServerOptions): Promise<DpmServer> {
 
     /**
      * A read-only view of the node in Kubo's own RPC format, so clients ask a server exactly what they ask
-     * their local node: `pin/ls` (only DPM's packages: the pins named `dpm`), `id` (the node's public
+     * their local node: `pin/ls` (only DPM packages: pinned folders with a dpm.json), `id` (the node's public
      * addresses) and `version` (which the `ipfs` command checks first). Nothing else is answered, and nothing is
      * passed through to the node's real RPC API, which stays private.
      */
@@ -180,7 +183,7 @@ export async function createServer(opts: ServerOptions): Promise<DpmServer> {
             for (const cid of asked) if (!packages.has(cid)) return kuboError(`path '${cid}' is not pinned`);
             const keys = asked.length ? asked : [...packages];
             return send(res, 200, {
-                Keys: Object.fromEntries(keys.map((cid) => [cid, { Type: 'recursive', Name: PIN_NAME }])),
+                Keys: Object.fromEntries(keys.map((cid) => [cid, { Type: 'recursive', Name: '' }])),
             });
         }
         return send(res, 404, { Message: `${command}: not available on a DPM server`, Code: 0, Type: 'error' });
