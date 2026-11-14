@@ -63,6 +63,6 @@ Since a CID fixes its whole tree, a server that keeps a CID after checking it ha
 
 ## 4. Nodes
 
-A node may be shared with other applications. A node's DPM packages are its pinned folders that contain a `dpm.json`, however they were pinned. Pins carry no DPM-specific name or label.
+A node may be shared with other applications. DPM adds nothing to a node: pins carry no DPM-specific name or label, and a package is recognised only by its content (a `dpm.json` at the top level).
 
 A node's RPC API is its private admin interface and MUST NOT be exposed. Nodes reach each other through IPFS's own peer-to-peer port. A server exposes that port and its Pinning Service API; a client needs neither exposed, since it only connects out.

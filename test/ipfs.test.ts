@@ -204,13 +204,15 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             await install(project({}, [alice]), reader);
             // Installed, and cached in the node, but not pinned.
             expect(await reader.hasLocally(alice)).toBe(true);
-            expect(await reader.packages()).toEqual([]);
+            expect(await reader.pins()).not.toContain(alice);
+            expect(await reader.pins()).not.toContain(base);
             // ...the user runs their checks here, then pins Alice's package alone...
             await ipfs(reader, 'pin', 'add', alice);
-            expect(await reader.packages()).toEqual([alice]);
+            expect(await reader.pins()).toContain(alice);
+            expect(await reader.pins()).not.toContain(base);
             // ...or its whole tree: dpm tree <cid> | ipfs pin add
             await ipfsWithInput(reader, (await tree(alice, reader)).join('\n') + '\n', 'pin', 'add');
-            expect((await reader.packages()).sort()).toEqual([alice, base].sort());
+            expect(await reader.pins()).toEqual(expect.arrayContaining([alice, base]));
         });
 
         it('removes packages no longer needed when reinstalling', async () => {
@@ -297,20 +299,6 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             const app = await publish(project({ 'App/Main.ul': 'm' }, [base]), author);
             await push(author, { name: 'home', url }, app);
             expect(await serverNode.pins()).toEqual(expect.arrayContaining([app, base]));
-        });
-    });
-
-    describe('what counts as a DPM package', () => {
-        it('lists every pinned folder with a dpm.json, however it was pinned, and nothing else', async () => {
-            const kubo = await startNode();
-            const mine = await publish(project({ 'Kant/Ethics.ul': 'duty' }), kubo);
-            // Content another application stores and pins: a folder without dpm.json, and a single file.
-            const folder = tmpDir();
-            writeTree(folder, { 'photo.txt': 'not a package' });
-            const theirs = await ipfs(kubo, 'add', '-r', '-Q', folder);
-            const file = await ipfs(kubo, 'add', '-Q', path.join(folder, 'photo.txt'));
-            expect(await kubo.pins()).toEqual(expect.arrayContaining([mine, theirs, file]));
-            expect(await kubo.packages()).toEqual([mine]);
         });
     });
 

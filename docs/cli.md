@@ -13,7 +13,7 @@
 | fetch from a server | `ipfs swarm peering add <the server node's address>` (see below) |
 | get a package's files to work on | `ipfs get <cid> -o <folder>`, then `dpm install` in it |
 
-`dpm` talks to your local node through its RPC API: `http://127.0.0.1:5001` by default, set with `dpm node --set <url>` or `DPM_KUBO_API`. Settings are in `~/.dpm/client/config.json` (override the folder with `DPM_HOME`).
+`dpm` talks to Kubo through Kubo's local HTTP API (which Kubo calls its RPC API): `http://127.0.0.1:5001` by default, set with `dpm node --set <url>` or `DPM_KUBO_API`. That API is Kubo's admin interface, so it must stay on your machine: never point `dpm` at another machine's Kubo. Kubo does all the work of finding, fetching and verifying content; `dpm` only asks it for packages by CID. Settings are in `~/.dpm/client/config.json` (override the folder with `DPM_HOME`).
 
 Start the node first: `ipfs init --profile=unixfs-v1-2025` (once), then `ipfs daemon`. For an existing node, `ipfs config profile apply unixfs-v1-2025`. Everyone using the same import settings means the same files get the same CIDs, so IPFS stores and transfers each file once.
 
@@ -32,12 +32,11 @@ A project is a folder with a `dpm.json` (`{ "deps": [CID, ...] }`); the folder i
 
 ## Packages
 
-These take a CID and work anywhere: no project needed.
+This takes a CID and works anywhere: no project needed. (To see what your own node has pinned, use `ipfs pin ls`.)
 
 | Command | Description |
 |---|---|
 | `dpm tree <cid> [--timeout 120s]` | Print the package and every package it depends on, recursively, one CID per line, each once. Everything is fetched (not pinned) before anything is printed, so if the tree can't be completed, nothing is printed. |
-| `dpm ls --node` | List every DPM package pinned in your node: its pinned folders that contain a `dpm.json` |
 
 Install, check, then pin:
 
@@ -58,7 +57,7 @@ A DPM server is a standard IPFS pinning service. Kubo talks to it; `dpm` never d
 
 | Command | Description |
 |---|---|
-| `dpm node [--set <url>]` | Show the local node (version, peer ID, addresses), or set its RPC API URL |
+| `dpm node [--set <url>]` | Show which Kubo `dpm` talks to (its version and URL), or set the URL |
 
 ## Server
 

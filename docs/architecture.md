@@ -30,7 +30,7 @@ DPM has no package names, so it has no name conflicts, no overrides and no resol
 
 | Part | What it does |
 |---|---|
-| `Kubo` | A client for a Kubo node's RPC API: `addFolder` (with the fixed import settings), `cat`, `fetch`, `pin`, `unpin`, `pins`, `packages` (pinned folders with a `dpm.json`), `connect`, `exportTo`, `gc`, `id`, `version` |
+| `Kubo` | A client for a Kubo node's RPC API: `addFolder` (with the fixed import settings), `cat`, `fetch`, `pin`, `unpin`, `pins`, `connect`, `exportTo`, `gc`, `id`, `version` |
 | `readPackageFolder` | A project folder's files, leaving out `deps/` and hidden entries |
 | `manifest`, `parseManifest`, `readManifest`, `writeManifest`, `isCid` | `dpm.json` |
 | `fetchTree`, `install`, `readGraph` | Fetch a tree by CID (each package once), and install it flat |

@@ -113,13 +113,8 @@ program
 program
     .command('ls')
     .description("List the project's installed packages, with what each contains at its top level")
-    .option('--node', 'instead, list every DPM package pinned in the local IPFS node')
     .action(
-        run(async (opts: { node?: boolean }) => {
-            if (opts.node) {
-                for (const cid of await ClientConfig.load().kubo().packages()) console.log(cid);
-                return;
-            }
+        run(() => {
             const graph = readGraph(dir());
             if (!graph) throw new DpmError("Nothing installed: run 'dpm install'");
             for (const [cid, { deps }] of Object.entries(graph.packages)) {
@@ -135,8 +130,8 @@ program
 
 program
     .command('node')
-    .description('Show the local IPFS node, or set where its RPC API is')
-    .option('--set <url>', 'set the RPC API URL (default http://127.0.0.1:5001)')
+    .description("Show which Kubo dpm talks to, or set it: the URL of Kubo's HTTP API")
+    .option('--set <url>', "set the URL of Kubo's HTTP API (default http://127.0.0.1:5001)")
     .action(
         run(async (opts: { set?: string }) => {
             const config = ClientConfig.load();
@@ -145,10 +140,7 @@ program
                 config.save();
             }
             const kubo = config.kubo();
-            const id = await kubo.id();
             console.log(`Kubo ${await kubo.version()} at ${kubo.api}`);
-            console.log(`peer ID ${id.id}`);
-            id.addresses.forEach((a) => console.log(`  ${a}`));
         }),
     );
 

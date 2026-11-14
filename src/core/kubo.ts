@@ -181,16 +181,6 @@ export class Kubo {
     }
 
     /**
-     * The DPM packages pinned on this node: pinned folders with a dpm.json at their top level. What makes
-     * something a package is its content, so it doesn't matter who pinned it or how (`ipfs pin add` included).
-     */
-    async packages(): Promise<string[]> {
-        const out: string[] = [];
-        for (const cid of await this.pins()) if (await this.hasLocally(`${cid}/dpm.json`)) out.push(cid);
-        return out;
-    }
-
-    /**
      * Deletes everything not pinned. A DPM server runs this after refusing or releasing a package, so its node
      * stops serving what it refused.
      */
