@@ -176,7 +176,16 @@ export class Kubo {
      */
     async fetch(cid: string): Promise<void> {
         const res = await this.call('refs', { arg: cid, recursive: 'true', unique: 'true', timeout: this.timeout });
-        await res.arrayBuffer();
+        // refs streams one JSON object per line, and reports failures inside the stream ({ "Err": ... }) or in
+        // the X-Stream-Error trailer, with HTTP 200.
+        const text = await res.text();
+        for (const line of text.split('\n')) {
+            if (!line.trim()) continue;
+            const err = (JSON.parse(line) as { Err?: string; Message?: string }).Err;
+            if (err) throw new KuboError(`IPFS refs failed: ${err}`);
+        }
+        const trailer = res.headers.get('x-stream-error');
+        if (trailer) throw new KuboError(`IPFS refs failed: ${trailer}`);
     }
 
     /** Whether a CID is pinned recursively, by anyone. */

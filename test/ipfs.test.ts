@@ -92,6 +92,22 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             expect(fs.readdirSync(path.join(app, 'deps')).sort()).toEqual([base, 'graph.json'].sort());
         });
 
+        it('pins nothing when the tree cannot be completed', async () => {
+            const { author, home, reader } = await world();
+            const missing = await cidOf(project({ 'Nowhere/X.ul': 'gone' }), author);
+            // present can be fetched, but depends on something nobody has.
+            const present = await pack(project({ 'Kant/Ethics.ul': 'duty' }, [missing]), author);
+            await expect(push(present, [home], author)).rejects.toThrow(`Could not fetch ${missing}`);
+            // The reader can get present (from the author's node), and then fails on its missing dependency.
+            const quick = new Kubo(reader.api, '2s');
+            await quick.connect((await author.id()).addresses[0] as string);
+            await expect(installProject(project({}, [present]), quick, [])).rejects.toThrow(
+                `Could not fetch ${missing}`,
+            );
+            expect(await reader.hasLocally(present)).toBe(true);
+            expect(await reader.pins()).not.toContain(present);
+        });
+
         it('fails, naming the package, when a dependency cannot be found anywhere', async () => {
             const author = await startNode();
             const missing = await cidOf(project({ 'Nowhere/X.ul': 'gone' }), author);

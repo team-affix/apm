@@ -114,7 +114,7 @@ export async function createServer(opts: ServerOptions): Promise<DpmServer> {
             // Connect to where the client said the content is. Failures are fine: the client also connects to us.
             for (const origin of r.pin.origins ?? []) await kubo.connect(origin).catch(() => undefined);
             // Fetch the whole tree without pinning, apply the policy, and pin only what was asked for.
-            const graph = await fetchTree(kubo, [r.pin.cid], { pin: false });
+            const graph = await fetchTree(kubo, [r.pin.cid]);
             const refusal = opts.policy ? await opts.policy({ cid: r.pin.cid, graph, kubo }) : undefined;
             if (refusal) throw new Error(refusal);
             const keep = opts.keepDependencies ? Object.keys(graph.packages) : [r.pin.cid];
@@ -126,8 +126,8 @@ export async function createServer(opts: ServerOptions): Promise<DpmServer> {
             r.tree = keep;
             r.info = {};
         } catch (e) {
-            // Undo any pins made before the failure, then collect garbage, so the node stops serving what it
-            // refused.
+            // Nothing is pinned until the policy has accepted the package. Only an error while pinning (from Kubo)
+            // can leave pins behind: undo those. Then collect garbage, so the node stops serving what it refused.
             r.status = 'failed';
             r.info = { reason: (e as Error).message };
             await release(pinned);

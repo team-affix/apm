@@ -42,7 +42,7 @@ dpm add $BASE
 dpm install                        # writes deps/<cid>/Kant/Ethics.ul and deps/graph.json
 ```
 
-See the [protocol spec](docs/protocol.md), the [architecture](docs/architecture.md) (library, server policies) and the [CLI reference](docs/cli.md).
+See the [protocol spec](docs/protocol.md), the [architecture](docs/architecture.md) (library, server policies), the [CLI reference](docs/cli.md) and the [engineering principles](docs/engineering.md).
 
 ## Library
 

@@ -33,16 +33,14 @@ export interface FetchOptions {
     readonly before?: (cid: string) => Promise<void>;
     /** Called after each CID is fetched. */
     readonly fetched?: (cid: string) => void;
-    /**
-     * Pin each package, so the node keeps it (default: true, as `dpm install` does). With false, packages are
-     * only fetched, like any data the node downloads.
-     */
-    readonly pin?: boolean;
 }
 
 /**
- * Fetches (and by default pins) every package reachable from `roots`, following each package's dpm.json, and
- * returns the graph. Each package is fetched once, however many depend on it. Kubo checks every block against its CID.
+ * Fetches every package reachable from `roots`, following each package's dpm.json, and returns the graph. Each
+ * package is fetched once, however many depend on it. Kubo checks every block against its CID.
+ *
+ * Nothing is pinned: whoever calls this pins what it has decided to keep, once it has decided (see
+ * docs/engineering.md).
  */
 export async function fetchTree(kubo: Kubo, roots: readonly string[], opts: FetchOptions = {}): Promise<Graph> {
     const packages: Record<string, { deps: readonly string[] }> = {};
@@ -52,7 +50,7 @@ export async function fetchTree(kubo: Kubo, roots: readonly string[], opts: Fetc
         if (!isCid(cid)) throw new ManifestError(`Not a CID: '${cid}'`);
         await opts.before?.(cid);
         try {
-            await (opts.pin === false ? kubo.fetch(cid) : kubo.pin(cid));
+            await kubo.fetch(cid);
         } catch (e) {
             throw new KuboError(`Could not fetch ${cid}: ${(e as Error).message}`);
         }
@@ -64,16 +62,26 @@ export async function fetchTree(kubo: Kubo, roots: readonly string[], opts: Fetc
     return { root: [...roots], packages };
 }
 
+export interface InstallOptions extends FetchOptions {
+    /**
+     * Pin the installed packages, so the node keeps them (default: true). Pinning happens only once the whole
+     * tree has been fetched. A server checking a package installs it with false: it pins only what passes.
+     */
+    readonly pin?: boolean;
+}
+
 /**
- * Installs a project's dependencies: fetches the whole tree, writes each package to `deps/<cid>/` (flat:
- * however deep it is in the tree), removes packages no longer needed, and writes `deps/graph.json`.
+ * Installs a project's dependencies: fetches the whole tree, pins it once all of it has arrived, writes each
+ * package to `deps/<cid>/` (flat: however deep it is in the tree), removes packages no longer needed, and writes
+ * `deps/graph.json`.
  *
  * DPM gives every package its own folder, named by CID, so two packages never collide on disk and the same
  * package is installed once. What packages mean, and what to do if two of them clash, is up to the tools that
  * use them.
  */
-export async function install(dir: string, kubo: Kubo, opts: FetchOptions = {}): Promise<Graph> {
+export async function install(dir: string, kubo: Kubo, opts: InstallOptions = {}): Promise<Graph> {
     const graph = await fetchTree(kubo, readManifest(dir).deps, opts);
+    if (opts.pin !== false) for (const cid of Object.keys(graph.packages)) await kubo.pin(cid);
     const deps = path.join(dir, DEPS);
     fs.mkdirSync(deps, { recursive: true });
     for (const cid of Object.keys(graph.packages)) {
