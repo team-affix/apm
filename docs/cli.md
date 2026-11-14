@@ -16,10 +16,10 @@ A project is a folder with a `dpm.json` (`{ "deps": [CID, ...] }`). Installed de
 | `dpm install [-r <remote...>] [--timeout 120s]` | Fetch every dependency into `deps/<cid>/` and write `deps/graph.json`. Remotes are asked whether they keep each package, and the nodes of those that do are connected to first. |
 | `dpm ls` | List the project's installed packages: `*` marks direct dependencies, followed by each package's top-level folders |
 | `dpm ls --node` | List every package in the local IPFS node: the pins DPM created (named `dpm`), not other applications' content |
-| `dpm ls --remote <name>` | List every package a remote DPM server keeps, dependencies included. The same request as `--node`, sent to the server. |
+| `dpm ls --remote <name>` | List every package a remote DPM server keeps. The same request as `--node`, sent to the server. |
 | `dpm cid` | Print the project's CID, without storing anything |
 | `dpm pack` | Add the project to the local node (leaving out `deps/` and hidden files) and print its CID |
-| `dpm push [remote...] [--cid <cid>] [--wait 120]` | Pack the project (or take a CID) and ask remotes to keep it. Nothing is uploaded: each remote's node fetches it from yours. Prints each remote's verdict, with the reason if it refused. |
+| `dpm push [remote...] [--cid <cid>] [--with-deps] [--wait 120]` | Pack the project (or take a CID) and ask remotes to keep it. Nothing is uploaded: each remote's node fetches it from yours. Servers usually keep only what is pushed, so `--with-deps` also pushes each package it depends on, as its own request. Prints each remote's verdict, with the reason if it refused. |
 
 ## Remotes
 
@@ -44,5 +44,6 @@ DPM_KUBO_API=http://127.0.0.1:5001 PORT=3000 dpm-server
 | `DPM_TOKENS` | Comma-separated access tokens. If set, adding or withdrawing pins needs one. |
 | `DPM_ANNOUNCE` | Comma-separated multiaddrs clients should connect to (default: the node's own) |
 | `DPM_CHECK` | A command run in each installed package; it is kept only if the command succeeds. A Unilog server uses `unilog check`. |
+| `DPM_KEEP_DEPS` | `1`: keep each package's dependencies too. By default dependencies are fetched for the check, then let go, and only what was pushed is kept. |
 
 Expose the server's port and the Kubo node's peer-to-peer port (4001), never its RPC API (5001). Give the server a Kubo node of its own: after refusing or releasing a package, the server garbage-collects the node so it stops serving that content, which deletes anything unpinned.

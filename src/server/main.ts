@@ -15,6 +15,7 @@ import { commandPolicy, createServer } from './server';
  *   DPM_ANNOUNCE     comma-separated multiaddrs clients should connect to (default: the node's own)
  *   DPM_CHECK        a command to run in each installed package; it is kept only if the command succeeds
  *                    (a Unilog server uses DPM_CHECK="unilog check")
+ *   DPM_KEEP_DEPS    1: keep each package's dependencies too, not only what was pushed
  */
 const list = (v?: string) =>
     v
@@ -35,11 +36,17 @@ async function main() {
         ...(tokens && { tokens }),
         ...(announce && { delegates: announce }),
         ...(process.env.DPM_CHECK && { policy: commandPolicy(process.env.DPM_CHECK) }),
+        keepDependencies: process.env.DPM_KEEP_DEPS === '1',
     });
     server.http.listen(port, host, () => {
         console.log(`dpm-server ${VERSION} listening on ${host ?? '*'}:${port}, using Kubo ${ipfs} at ${kubo.api}`);
         if (process.env.DPM_CHECK) console.log(`policy: keep packages for which '${process.env.DPM_CHECK}' succeeds`);
         if (!tokens) console.log('anyone may add pins (set DPM_TOKENS to require a token)');
+        console.log(
+            process.env.DPM_KEEP_DEPS === '1'
+                ? "keeping packages' dependencies too"
+                : 'keeping only what was pushed (DPM_KEEP_DEPS=1 keeps dependencies too)',
+        );
     });
 }
 

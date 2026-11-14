@@ -29,9 +29,15 @@ export interface ServerOptions {
     /** Multiaddrs clients should connect to (default: the Kubo node's own addresses). */
     delegates?: readonly string[];
     policy?: Policy;
+    /**
+     * Keep each package's dependencies too, so everything listed can be installed from this server alone
+     * (default: false). Either way, dependencies are fetched to apply the policy; by default they are then let
+     * go, and a dependency is kept only if it was pushed itself (`dpm push --with-deps` pushes a whole tree).
+     */
+    keepDependencies?: boolean;
 }
 
-/** A pin request as stored: its public status, and the CIDs it holds once pinned (it and its dependencies). */
+/** A pin request as stored: its public status, and the CIDs it holds once pinned (it, and its dependencies if kept). */
 interface Request extends PinStatus {
     tree?: string[];
 }
@@ -115,8 +121,14 @@ export async function createServer(opts: ServerOptions): Promise<DpmServer> {
             const refusal = opts.policy ? await opts.policy({ cid: r.pin.cid, graph, kubo }) : undefined;
             if (refusal) throw new Error(refusal);
             r.status = 'pinned';
-            r.tree = fetched;
+            r.tree = opts.keepDependencies ? fetched : [r.pin.cid];
             r.info = {};
+            // Dependencies were fetched only to apply the policy: let go of those no request holds.
+            const extra = fetched.filter((cid) => !r.tree?.includes(cid));
+            if (extra.length) {
+                await release(extra);
+                collect();
+            }
         } catch (e) {
             r.status = 'failed';
             r.info = { reason: (e as Error).message };

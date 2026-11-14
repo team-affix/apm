@@ -98,18 +98,20 @@ program
     )
     .argument('[remote...]', 'remotes to push to (default: all)')
     .option('--cid <cid>', 'push this CID instead of packing the project')
+    .option('--with-deps', 'also ask the remotes to keep each package it depends on')
     .option('--wait <seconds>', 'how long to wait for each remote', '120')
     .action(
-        run(async (remotes: string[], opts: { cid?: string; wait: string }) => {
+        run(async (remotes: string[], opts: { cid?: string; withDeps?: boolean; wait: string }) => {
             const config = ClientConfig.load();
             const kubo = config.kubo();
             const targets = config.select(remotes);
             if (!targets.length) throw new DpmError("No remotes: add one with 'dpm remote add <name> <url>'");
             const cid = opts.cid ? assertCid(opts.cid) : await pack(dir(), kubo);
             console.log(cid);
-            for (const r of await push(cid, targets, kubo, Number(opts.wait) * 1000)) {
+            for (const r of await push(cid, targets, kubo, Number(opts.wait) * 1000, opts.withDeps)) {
                 const reason = r.status.info?.reason;
-                console.log(`${r.remote}: ${r.status.status}${reason ? `: ${reason}` : ''}`);
+                const which = r.cid === cid ? '' : ` (dependency ${r.cid})`;
+                console.log(`${r.remote}: ${r.status.status}${which}${reason ? `: ${reason}` : ''}`);
                 if (r.status.status !== 'pinned') process.exitCode = 1;
             }
         }),

@@ -63,7 +63,9 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             // A diamond: alice and bob both depend on base.
             const alice = await pack(project({ 'Alice/Beliefs.ul': 'a' }, [base]), author);
             const bob = await pack(project({ 'Bob/Beliefs.ul': 'b' }, [base]), author);
-            for (const cid of [alice, bob]) expect((await push(cid, [home], author))[0]?.status.status).toBe('pinned');
+            // Each pushed with its dependencies, so the server keeps base too.
+            for (const cid of [alice, bob])
+                for (const r of await push(cid, [home], author, 60_000, true)) expect(r.status.status).toBe('pinned');
 
             const app = project({}, [alice, bob]);
             const graph = await installProject(app, reader, [home]);
@@ -128,10 +130,40 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
 
         it('runs the check with dependencies installed, so it can look at the whole tree', async () => {
             const [author, serverNode] = await Promise.all([startNode(), startNode()]);
-            const { url } = await startServer({ kubo: serverNode, policy: commandPolicy('cat deps/graph.json') });
+            const { url, server } = await startServer({
+                kubo: serverNode,
+                // The check can see the dependency's files under deps/.
+                policy: commandPolicy('ls deps/*/Kant/Ethics.ul'),
+            });
             const base = await pack(project({ 'Kant/Ethics.ul': 'duty' }), author);
             const app = await pack(project({ 'App/Main.ul': 'm' }, [base]), author);
             expect((await push(app, [{ name: 'home', url }], author))[0]?.status.status).toBe('pinned');
+            // By default it keeps only what was pushed: the dependency was fetched for the check, then let go.
+            await server.idle();
+            expect(await serverNode.pins()).toContain(app);
+            expect(await serverNode.pins()).not.toContain(base);
+            expect(await serverNode.hasLocally(base)).toBe(false);
+        });
+
+        it('keeps dependencies too when configured to', async () => {
+            const [author, serverNode] = await Promise.all([startNode(), startNode()]);
+            const { url } = await startServer({ kubo: serverNode, keepDependencies: true });
+            const base = await pack(project({ 'Kant/Ethics.ul': 'duty' }), author);
+            const app = await pack(project({ 'App/Main.ul': 'm' }, [base]), author);
+            await push(app, [{ name: 'home', url }], author);
+            expect(await serverNode.pins()).toEqual(expect.arrayContaining([app, base]));
+        });
+
+        it('keeps dependencies pushed with --with-deps, each as its own request', async () => {
+            const [author, serverNode] = await Promise.all([startNode(), startNode()]);
+            const { url } = await startServer({ kubo: serverNode });
+            const base = await pack(project({ 'Kant/Ethics.ul': 'duty' }), author);
+            const app = await pack(project({ 'App/Main.ul': 'm' }, [base]), author);
+            const results = await push(app, [{ name: 'home', url }], author, 60_000, true);
+            expect(results.map((r) => [r.cid, r.status.status])).toEqual([
+                [base, 'pinned'],
+                [app, 'pinned'],
+            ]);
             expect(await serverNode.pins()).toEqual(expect.arrayContaining([app, base]));
         });
     });
@@ -210,7 +242,7 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
 
         it("answers in Kubo's own format which DPM packages it keeps, dependencies included", async () => {
             const [author, serverNode] = await Promise.all([startNode(), startNode()]);
-            const { url } = await startServer({ kubo: serverNode });
+            const { url } = await startServer({ kubo: serverNode, keepDependencies: true });
             const base = await pack(project({ 'Kant/Ethics.ul': 'duty' }), author);
             const app = await pack(project({ 'App/Main.ul': 'm' }, [base]), author);
             await push(app, [{ name: 'home', url }], author);

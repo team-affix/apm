@@ -13,28 +13,35 @@ export function cidOf(dir: string, kubo: Kubo): Promise<string> {
 
 export interface PushResult {
     remote: string;
+    cid: string;
     status: PinStatus;
 }
 
 /**
- * Asks remotes to keep a package. Nothing is uploaded: each remote's node fetches the package and its
- * dependencies from ours over IPFS. Our node first makes sure it holds the whole tree, then connects out to
- * each remote's node, so the remote can fetch over that connection even if ours can't be reached from outside.
+ * Asks remotes to keep a package (with `withDeps`, also each package it depends on, each as its own request).
+ * Nothing is uploaded: each remote's node fetches the content from ours over IPFS. Our node first makes sure it
+ * holds the whole tree, then connects out to each remote's node, so the remote can fetch over that connection
+ * even if ours can't be reached from outside.
  */
 export async function push(
     cid: string,
     remotes: readonly Remote[],
     kubo: Kubo,
     timeoutMs = 120_000,
+    withDeps = false,
 ): Promise<PushResult[]> {
-    await fetchTree(kubo, [cid]);
+    const graph = await fetchTree(kubo, [cid]);
+    // Dependencies first, the package itself last.
+    const cids = withDeps ? [...Object.keys(graph.packages).filter((c) => c !== cid), cid] : [cid];
     const origins = (await kubo.id()).addresses;
     const results: PushResult[] = [];
     for (const remote of remotes) {
         const s = service(remote);
-        const requested = await s.add({ cid, origins });
-        for (const d of requested.delegates) await kubo.connect(d).catch(() => undefined);
-        results.push({ remote: remote.name, status: await s.wait(requested.requestid, timeoutMs) });
+        for (const c of cids) {
+            const requested = await s.add({ cid: c, origins });
+            for (const d of requested.delegates) await kubo.connect(d).catch(() => undefined);
+            results.push({ remote: remote.name, cid: c, status: await s.wait(requested.requestid, timeoutMs) });
+        }
     }
     return results;
 }
