@@ -1,18 +1,33 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { fetchTree, Graph, install, Kubo, PinningService, PinStatus, readManifest, readPackageFolder } from '../core';
+import {
+    DpmError,
+    fetchTree,
+    Graph,
+    install,
+    Kubo,
+    PinningService,
+    PinStatus,
+    readManifest,
+    readPackageFolder,
+} from '../core';
 import { Remote } from './config';
 
 /**
- * Writes the package a project folder makes (everything except `deps/` and hidden files) to a fresh temporary
- * folder, and returns that folder and the CID it will have once added to IPFS. Nothing is stored in IPFS: add it
- * with `ipfs add -r <folder>`.
+ * Writes the package a project folder makes (everything except `deps/` and hidden files) to a new folder, `out`
+ * or else a fresh temporary one, and returns that folder and the CID it will have once added to IPFS. `out` must
+ * not exist yet. Nothing is stored in IPFS: add it with `ipfs add -r <folder>`.
  */
-export async function pack(dir: string, kubo: Kubo): Promise<{ folder: string; cid: string }> {
+export async function pack(dir: string, kubo: Kubo, out?: string): Promise<{ folder: string; cid: string }> {
     readManifest(dir);
     const entries = readPackageFolder(dir);
-    const folder = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dpm-pack-')), 'package');
+    let folder: string;
+    if (out) {
+        folder = path.resolve(out);
+        if (fs.existsSync(folder)) throw new DpmError(`${folder} already exists: pack writes a new folder`);
+        fs.mkdirSync(path.dirname(folder), { recursive: true });
+    } else folder = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dpm-pack-')), 'package');
     fs.mkdirSync(folder);
     for (const e of entries) {
         const target = path.join(folder, ...e.path.split('/'));

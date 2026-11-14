@@ -93,11 +93,12 @@ program
 program
     .command('pack')
     .description(
-        'Write the project\'s package (everything except deps/ and hidden files) to a temporary folder and print the folder. Add it with: ipfs add -r -Q "$(dpm pack)"',
+        'Write the project\'s package (everything except deps/ and hidden files) to a new folder (a temporary one unless -o is given) and print the folder. Add it with: ipfs add -r -Q "$(dpm pack)"',
     )
+    .option('-o, --out <folder>', 'write the package to this new folder instead of a temporary one')
     .action(
-        run(async () => {
-            const { folder, cid } = await pack(dir(), ClientConfig.load().kubo());
+        run(async (opts: { out?: string }) => {
+            const { folder, cid } = await pack(dir(), ClientConfig.load().kubo(), opts.out);
             console.log(folder);
             console.error(`CID once added to IPFS: ${cid}`);
         }),

@@ -26,7 +26,7 @@ A project is a folder with a `dpm.json` (`{ "deps": [CID, ...] }`); the folder i
 | `dpm remove <cid...>` | Remove direct dependencies from `dpm.json` |
 | `dpm install [-r <remote...>] [--timeout 120s]` | Fetch every dependency into `deps/<cid>/` and write `deps/graph.json`. Remotes are asked whether they keep each package, and the nodes of those that do are connected to first. Nothing is pinned: fetched packages are cached like anything your node downloads. |
 | `dpm ls` | List the project's installed packages: `*` marks direct dependencies, followed by each package's top-level folders |
-| `dpm pack` | Write the project's package (everything except `deps/` and hidden files) to a new temporary folder, and print the folder's path. The CID it will have once added is printed on stderr. |
+| `dpm pack [-o <folder>]` | Write the project's package (everything except `deps/` and hidden files) to a new folder, and print the folder's path. The folder is a temporary one unless `-o` names one, which must not exist yet. The CID it will have once added is printed on stderr. |
 | `dpm cid` | Print the project's CID, without storing anything |
 
 ## Packages

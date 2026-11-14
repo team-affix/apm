@@ -80,6 +80,17 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             await expect(pack(dir, kubo)).rejects.toThrow(/is not a DPM project/);
         });
 
+        it('packs into a folder of your choosing, but never over an existing one', async () => {
+            const kubo = await startNode();
+            const dir = project({ 'Kant/Ethics.ul': 'x' });
+            const out = path.join(tmpDir(), 'out', 'kant');
+            const { folder, cid } = await pack(dir, kubo, out);
+            expect(folder).toBe(out);
+            expect(readTree(out)).toEqual({ 'Kant/Ethics.ul': 'x', 'dpm.json': '{\n    "deps": []\n}\n' });
+            expect(await ipfs(kubo, 'add', '-r', '-Q', out)).toBe(cid);
+            await expect(pack(dir, kubo, out)).rejects.toThrow(/already exists/);
+        });
+
         it('pack and cid store nothing in the node', async () => {
             const kubo = await startNode();
             const dir = project({ 'Kant/Ethics.ul': 'x' });
