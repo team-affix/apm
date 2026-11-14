@@ -30,9 +30,10 @@ export interface ServerOptions {
     delegates?: readonly string[];
     policy?: Policy;
     /**
-     * Keep each package's dependencies too, so everything listed can be installed from this server alone
-     * (default: false). Either way, dependencies are fetched to apply the policy; by default they are then let
-     * go, and a dependency is kept only if it was pushed itself (`dpm push --with-deps` pushes a whole tree).
+     * Pin each package's dependencies too, so everything listed can be installed from this server alone
+     * (default: false). Either way, the whole tree is fetched (not pinned) so the policy can look at it, and only
+     * what was asked for is pinned: a dependency is kept only if it was pushed itself (`dpm push --with-deps`).
+     * Fetched data that isn't pinned is like any data a Kubo node downloads: kept until garbage collection.
      */
     keepDependencies?: boolean;
 }
@@ -52,7 +53,7 @@ export function commandPolicy(command: string): Policy {
         try {
             const dir = path.join(work, 'package');
             await kubo.exportTo(cid, dir);
-            await install(dir, kubo);
+            await install(dir, kubo, { pin: false });
             const { code, output } = await new Promise<{ code: number | null; output: string }>((resolve) => {
                 const child = spawn(command, { cwd: dir, shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
                 let output = '';
@@ -98,13 +99,9 @@ export async function createServer(opts: ServerOptions): Promise<DpmServer> {
     const collect = () => run(() => kubo.gc());
     for (const r of requests) if (r.status === 'queued' || r.status === 'pinning') enqueue(r);
 
-    /** CIDs kept for pinned requests, other than `except`. */
-    const held = (except?: Request) =>
-        new Set(requests.filter((r) => r !== except && r.status === 'pinned').flatMap((r) => r.tree ?? []));
-
     /** Unpins whatever of `cids` no pinned request still holds. Pins DPM didn't create are left alone. */
-    async function release(cids: readonly string[], except?: Request) {
-        const keep = held(except);
+    async function release(cids: readonly string[]) {
+        const keep = new Set(requests.filter((r) => r.status === 'pinned').flatMap((r) => r.tree ?? []));
         const ours = new Set(await kubo.packages());
         for (const cid of cids) if (!keep.has(cid) && ours.has(cid)) await kubo.unpin(cid).catch(() => undefined);
     }
@@ -112,27 +109,28 @@ export async function createServer(opts: ServerOptions): Promise<DpmServer> {
     async function processRequest(r: Request) {
         r.status = 'pinning';
         save();
-        let fetched: string[] = [];
+        const pinned: string[] = [];
         try {
             // Connect to where the client said the content is. Failures are fine: the client also connects to us.
             for (const origin of r.pin.origins ?? []) await kubo.connect(origin).catch(() => undefined);
-            const graph = await fetchTree(kubo, [r.pin.cid], { fetched: (cid) => fetched.push(cid) });
-            fetched = Object.keys(graph.packages);
+            // Fetch the whole tree without pinning, apply the policy, and pin only what was asked for.
+            const graph = await fetchTree(kubo, [r.pin.cid], { pin: false });
             const refusal = opts.policy ? await opts.policy({ cid: r.pin.cid, graph, kubo }) : undefined;
             if (refusal) throw new Error(refusal);
-            r.status = 'pinned';
-            r.tree = opts.keepDependencies ? fetched : [r.pin.cid];
-            r.info = {};
-            // Dependencies were fetched only to apply the policy: let go of those no request holds.
-            const extra = fetched.filter((cid) => !r.tree?.includes(cid));
-            if (extra.length) {
-                await release(extra);
-                collect();
+            const keep = opts.keepDependencies ? Object.keys(graph.packages) : [r.pin.cid];
+            for (const cid of keep) {
+                await kubo.pin(cid);
+                pinned.push(cid);
             }
+            r.status = 'pinned';
+            r.tree = keep;
+            r.info = {};
         } catch (e) {
+            // Undo any pins made before the failure, then collect garbage, so the node stops serving what it
+            // refused.
             r.status = 'failed';
             r.info = { reason: (e as Error).message };
-            await release(fetched, r);
+            await release(pinned);
             collect();
         }
         save();

@@ -170,6 +170,15 @@ export class Kubo {
         });
     }
 
+    /**
+     * Fetches a CID and everything under it without pinning it: it is stored like any fetched data, until the
+     * node's garbage collection (if any) removes it.
+     */
+    async fetch(cid: string): Promise<void> {
+        const res = await this.call('refs', { arg: cid, recursive: 'true', unique: 'true', timeout: this.timeout });
+        await res.arrayBuffer();
+    }
+
     /** Whether a CID is pinned recursively, by anyone. */
     async isPinned(cid: string): Promise<boolean> {
         try {

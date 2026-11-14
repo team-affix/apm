@@ -62,7 +62,7 @@ Statuses go `queued`, then `pinning`, then `pinned` or `failed`. Each carries th
 A server:
 
 - MUST fetch the package's whole tree (following `dpm.json`) before reporting it `pinned`, so its policy can look at all of it, and MUST keep the package until the request is withdrawn.
-- MAY keep the package's dependencies too, or let them go and keep only what was pushed. The reference server keeps only what was pushed by default (`DPM_KEEP_DEPS=1` keeps dependencies), so transitive dependencies aren't copied to every server. A client that wants a server to keep dependencies pushes each of them (`dpm push --with-deps`).
+- MAY pin the package's dependencies too. The reference server pins only what was pushed, by default: it fetches the dependencies to apply its policy, without pinning them, so they stay only as cached data until garbage collection, as with anything a Kubo node fetches (`DPM_KEEP_DEPS=1` pins them). A client that wants a server to keep dependencies pushes each of them (`dpm push --with-deps`).
 - SHOULD delete what it refused or released (garbage-collect its node), so it stops serving it. A server SHOULD use a node of its own, so everything the node holds is something the server chose to keep.
 - MAY refuse any package for any reason, reporting it `failed` with a reason. Acceptance policy is the server's own: the reference server keeps any package whose tree can be fetched, a logic server also requires the content to check, and an operator may add size limits or access tokens.
 - MAY require an access token (`Authorization: Bearer <token>`) for adding or withdrawing pins.

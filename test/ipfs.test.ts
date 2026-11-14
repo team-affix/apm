@@ -138,11 +138,11 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             const base = await pack(project({ 'Kant/Ethics.ul': 'duty' }), author);
             const app = await pack(project({ 'App/Main.ul': 'm' }, [base]), author);
             expect((await push(app, [{ name: 'home', url }], author))[0]?.status.status).toBe('pinned');
-            // By default it keeps only what was pushed: the dependency was fetched for the check, then let go.
+            // By default it pins only what was pushed. The dependency was fetched for the check and isn't pinned:
+            // like any data a Kubo node fetches, it stays cached until garbage collection.
             await server.idle();
             expect(await serverNode.pins()).toContain(app);
             expect(await serverNode.pins()).not.toContain(base);
-            expect(await serverNode.hasLocally(base)).toBe(false);
         });
 
         it('keeps dependencies too when configured to', async () => {

@@ -44,6 +44,6 @@ DPM_KUBO_API=http://127.0.0.1:5001 PORT=3000 dpm-server
 | `DPM_TOKENS` | Comma-separated access tokens. If set, adding or withdrawing pins needs one. |
 | `DPM_ANNOUNCE` | Comma-separated multiaddrs clients should connect to (default: the node's own) |
 | `DPM_CHECK` | A command run in each installed package; it is kept only if the command succeeds. A Unilog server uses `unilog check`. |
-| `DPM_KEEP_DEPS` | `1`: keep each package's dependencies too. By default dependencies are fetched for the check, then let go, and only what was pushed is kept. |
+| `DPM_KEEP_DEPS` | `1`: pin each package's dependencies too. By default only what was pushed is pinned; dependencies are fetched for the check without being pinned, so they stay only as cached data until garbage collection, as with anything a Kubo node fetches. |
 
 Expose the server's port and the Kubo node's peer-to-peer port (4001), never its RPC API (5001). Give the server a Kubo node of its own: after refusing or releasing a package, the server garbage-collects the node so it stops serving that content, which deletes anything unpinned.

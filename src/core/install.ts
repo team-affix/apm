@@ -31,13 +31,18 @@ export async function depsOf(kubo: Kubo, cid: string): Promise<readonly string[]
 export interface FetchOptions {
     /** Called before fetching each CID: e.g. to connect to nodes known to have it. */
     readonly before?: (cid: string) => Promise<void>;
-    /** Called after each CID is fetched and pinned. */
+    /** Called after each CID is fetched. */
     readonly fetched?: (cid: string) => void;
+    /**
+     * Pin each package, so the node keeps it (default: true, as `dpm install` does). With false, packages are
+     * only fetched, like any data the node downloads.
+     */
+    readonly pin?: boolean;
 }
 
 /**
- * Fetches and pins every package reachable from `roots`, following each package's dpm.json, and returns the
- * graph. Each package is fetched once, however many depend on it. Kubo checks every block against its CID.
+ * Fetches (and by default pins) every package reachable from `roots`, following each package's dpm.json, and
+ * returns the graph. Each package is fetched once, however many depend on it. Kubo checks every block against its CID.
  */
 export async function fetchTree(kubo: Kubo, roots: readonly string[], opts: FetchOptions = {}): Promise<Graph> {
     const packages: Record<string, { deps: readonly string[] }> = {};
@@ -47,7 +52,7 @@ export async function fetchTree(kubo: Kubo, roots: readonly string[], opts: Fetc
         if (!isCid(cid)) throw new ManifestError(`Not a CID: '${cid}'`);
         await opts.before?.(cid);
         try {
-            await kubo.pin(cid);
+            await (opts.pin === false ? kubo.fetch(cid) : kubo.pin(cid));
         } catch (e) {
             throw new KuboError(`Could not fetch ${cid}: ${(e as Error).message}`);
         }
