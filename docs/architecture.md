@@ -1,72 +1,53 @@
 # Architecture
 
-This repository holds three things:
+DPM is a thin layer over IPFS. It has three parts:
 
-1. **The protocol** ([protocol.md](protocol.md)). This is what DPM *is*.
-2. **A library** of parts for building protocol clients and servers.
-3. **Reference implementations** built from those parts: the `dpm` CLI and `dpm-server`.
+1. **The protocol** ([protocol.md](protocol.md)): packages are IPFS folders with a `dpm.json` of dependency CIDs, installed flat into `deps/<cid>/`, and kept by servers that speak the IPFS Pinning Service API.
+2. **A library** (`@team-affix/dpm`) for building clients and servers.
+3. **Reference implementations**: the `dpm` CLI and `dpm-server`.
 
-There is one client, `dpm`, for every kind of content and every server. Servers with a different acceptance policy (e.g. a logic server that only accepts logically valid packages) are written from the same library and speak the same protocol. There are no hooks into the reference implementations. If a server needs different behaviour, it writes its own handler, the way GitHub runs its own push server while still speaking Git's protocol.
-
-## Validation happens outside DPM
-
-DPM moves bytes and guarantees they are exactly what was asked for (every fetch is hash-checked). It never judges content, and it never runs commands. Checking content is a separate, second step done by the content's own tool:
-
-```bash
-dpm add Kant@<sha256>      # depend on it
-dpm install                # fetch (hash-checked), resolve, unpack into deps/
-logic-check .              # your language's checker reads MyProject/ + deps/
+```
+ your machine                                   a DPM server
+ ┌──────────────┐  RPC (private)  ┌──────┐      ┌──────┐  RPC (private)  ┌────────────┐
+ │ dpm (client) │ ──────────────▶ │ Kubo │◀────▶│ Kubo │ ◀────────────── │ dpm-server │◀── Pinning
+ └──────────────┘                 └──────┘ IPFS └──────┘                 └────────────┘    Service API
+                                         (content, hash-checked)                           (requests)
 ```
 
-Validity belongs to a resolved project tree, not to a stored package (overrides change what a dependency means), so a project is the natural unit to check. A local registry is just a cache of hash-verified bytes and can hold any kind of content.
+Each side runs a Kubo node and talks to it through its private RPC API. Content moves only between Kubo nodes, over IPFS, checked block by block against its CID. The DPM server's public API carries only requests ("please keep this CID"), never content.
+
+## What DPM does, and what it leaves to others
+
+- **IPFS** stores, transfers and verifies content, and gives each folder its CID.
+- **DPM** says how a package lists its dependencies (`dpm.json`), how a tree is installed (`deps/<cid>/` plus `graph.json`), and how servers are asked to keep packages.
+- **The content's own tools** decide what packages mean, and what to do when two of them clash. For example, Unilog reads module search roots from `deps/*` and reports two packages providing the same module.
+
+DPM has no package names, so it has no name conflicts, no overrides and no resolver. A CID fixes its whole dependency tree.
 
 ## Library (`@team-affix/dpm`)
 
 | Part | What it does |
 |---|---|
-| `Package` | Encode/decode the package format. `Package.decodeAs(bytes, id)` is the mandatory hash check. A `Package` can only be obtained by decoding or creating one, so its `id` is always the hash of its bytes. |
-| `parseId`, `nameOf`, `assertValidName` | Identity rules |
-| `Registry` | A plain on-disk store: `<root>/packages/<id>`. Atomic `put` (a no-op if already present), and `get` re-checks the hash. No policy and no knowledge of dependencies. |
-| `PackageSource`, `MemorySource`, `CachingSource`, `fetchVerified` | Anywhere packages can come from, in priority order, with every result hash-checked |
-| `resolve`, `formatTree` | The resolution rules |
-| `ingest`, `dependenciesFirst` | The reference admission sequence: every package in the batch must belong to a tree that resolves (the batch's top-level packages are resolved first, overrides included), then all are stored, or none. A convenience, not a contract. |
-| `RemoteRegistry` | Protocol client: `health`, `list`, `has`, `get`, `push`. Also usable as a `PackageSource`. |
-| `packDirectory`, `unpackToDirectory` | Deterministic directory ↔ payload conversion, and safe extraction of untrusted payloads |
+| `Kubo` | A client for a Kubo node's RPC API: `addFolder` (with the fixed import settings), `cat`, `pin`, `unpin`, `pins`, `connect`, `exportTo`, `id`, `version` |
+| `readPackageFolder` | A project folder's files, leaving out `deps/` and hidden entries |
+| `manifest`, `parseManifest`, `readManifest`, `writeManifest`, `isCid` | `dpm.json` |
+| `fetchTree`, `install`, `readGraph` | Fetch a tree by CID (each package once), and install it flat |
+| `PinningService` | A client for the Pinning Service API: `add`, `get`, `list`, `remove`, `wait` |
 
-### Server parts (`@team-affix/dpm/server`)
+`@team-affix/dpm/server` has `createServer` (the Pinning Service API in front of a Kubo node, with a `Policy` hook) and `commandPolicy`. `@team-affix/dpm/client` has `pack`, `cidOf`, `push`, `installProject` and `ClientConfig`.
 
-`matchRoute`, `readJson`, `parseHasRequest`, `parsePushRequest` (which performs the hash check), `sendJson`, `sendPackage`, `sendError`, `statusFor`, `handle`, `HttpError`.
+## Server policies
 
-### Client parts (`@team-affix/dpm/client`)
-
-`Project` (manifest, `install`, `pack`), `pull`, `push`, and `ClientHome` (an app's state directory: its local registry and remotes).
-
-## Reference implementations
-
-**`dpm-server`** accepts a push if every package passes the hash check and belongs to a tree that resolves (a package deep in a pushed tree only needs to resolve under the overrides above it), looking dependencies up in its own registry, the pushed batch and the given providers (`ingest`). It doesn't store what it fetched from providers. Options: `maxBodyBytes` (default 64 MiB), `allowProviders` (default true; `DPM_ALLOW_PROVIDERS=0` turns it off) and `maxProviders` (default 16). Turn providers off if you don't want the server making outbound requests to URLs chosen by pushers.
-
-**`dpm`** keeps its state in `~/.dpm/client` (`ClientHome`): one local registry for all content.
-
-## Writing a server with a different policy
-
-`src/server/server.ts` is the reference assembly, about 60 lines. A server with its own policy writes its own handler from the same parts and controls the whole push sequence:
+A policy is a function called once a package and its whole tree have been fetched. It returns a reason to refuse, or nothing to keep the package:
 
 ```ts
-import http from 'http';
-import { Registry, RemoteRegistry, resolve } from '@team-affix/dpm';
-import { handle, matchRoute, parsePushRequest, readJson, sendJson /* ... */ } from '@team-affix/dpm/server';
+import { createServer, Policy } from '@team-affix/dpm/server';
 
-http.createServer(handle(async (req, res) => {
-    const route = matchRoute(req);
-    if (route?.kind === 'push') {
-        const { packages, providers } = parsePushRequest(await readJson(req, LIMIT)); // 1. hash check
-        const resolutions = await Promise.all(packages.map((p) => resolve(p, sources))); // 2. resolve
-        await checkLogic(packages, resolutions);           // 3. this server's policy (throw RejectedError → 422)
-        for (const p of packages) await registry.put(p);   // 4. store
-        return sendJson(res, 200, { ids, stored });
-    }
-    // ...the other routes, usually identical to the reference server
-}));
+const policy: Policy = async ({ cid, graph, kubo }) =>
+    Object.keys(graph.packages).length > 100 ? 'too many dependencies' : undefined;
+
+const server = await createServer({ kubo, dataDir, policy });
+server.http.listen(3000);
 ```
 
-`test/custom-server.test.ts` contains a complete working example. It checks a whole batch at once, rejects by policy with 422, and works with the standard client and the reference server.
+`commandPolicy(command)` installs the package into a temporary folder (with `deps/` filled in) and keeps it only if `command` succeeds there. A Unilog server is the reference server with `DPM_CHECK="unilog check"`. The DPM client never runs commands; a server runs only the command its operator configured.

@@ -1,44 +1,46 @@
 # CLI reference
 
-`dpm` is the one client for every server and every kind of content. State lives in `~/.dpm/client` (override with `DPM_HOME`): the local registry is `<home>/registry`, and remotes are in `<home>/remotes.json`, where their order is the lookup priority. One local registry holds every kind of content.
+`dpm` drives your local IPFS node (Kubo) through its RPC API: `http://127.0.0.1:5001` by default, set with `dpm node --set <url>` or `DPM_KUBO_API`. Settings and remotes are in `~/.dpm/client/config.json` (override the folder with `DPM_HOME`). Packages themselves live in the IPFS node.
+
+Start the node first: `ipfs init --profile=unixfs-v1-2025` (once), then `ipfs daemon`.
 
 ## Projects
 
-A project directory contains `dpm.json` (`{ "name", "deps" }`), the content in `<Name>/`, and installed dependencies in `deps/<Dep>/`.
+A project is a folder with a `dpm.json` (`{ "deps": [CID, ...] }`). Installed dependencies go in `deps/<cid>/`, with `deps/graph.json`. All commands work on the current directory, or the one given with `-C <dir>`.
 
 | Command | Description |
 |---|---|
-| `dpm init <name>` | Create `dpm.json` and `<name>/` |
-| `dpm add <id...>` | Add direct dependencies. An existing dependency with the same name is replaced; that's how you pick a version or override a transitive one. |
-| `dpm remove <id-or-name...>` | Remove direct dependencies |
-| `dpm install [-r <remote...>] [--offline]` | Resolve the tree, keep a local copy of anything fetched, and write `deps/<name>/` |
-| `dpm pack [-r <remote...>] [--offline]` | Build a package from `<Name>/` and `dpm.json`, store it locally, and print its ID |
-
-## Packages
-
-| Command | Description |
-|---|---|
-| `dpm ls [ids...] [-r <remote>]` | List all packages, or show which of the given IDs are present |
-| `dpm info <id>` | Show a local package |
-| `dpm tree <id> [-r <remote...>] [--offline]` | Show the resolved dependency tree |
-| `dpm pull <id> [-r <remote...>]` | Fetch a package and its resolved tree. Each package comes from the first remote that has it. |
-| `dpm push <id> <remote> [-p <provider...>]` | Send the package and whatever local parts of its tree the remote lacks. Providers (default: all other remotes) are where the server may fetch anything else. |
+| `dpm init` | Create `dpm.json` |
+| `dpm add <cid...>` | Add direct dependencies |
+| `dpm remove <cid...>` | Remove direct dependencies |
+| `dpm install [-r <remote...>] [--timeout 120s]` | Fetch every dependency into `deps/<cid>/` and write `deps/graph.json`. Remotes are asked who keeps each package, and their nodes are connected to first. |
+| `dpm ls` | List installed packages: `*` marks direct dependencies, followed by each package's top-level folders |
+| `dpm cid` | Print the project's CID, without storing anything |
+| `dpm pack` | Add the project to the local node (leaving out `deps/` and hidden files) and print its CID |
+| `dpm push [remote...] [--cid <cid>] [--wait 120]` | Pack the project (or take a CID) and ask remotes to keep it. Nothing is uploaded: each remote's node fetches it from yours. Prints each remote's verdict, with the reason if it refused. |
 
 ## Remotes
 
 | Command | Description |
 |---|---|
-| `dpm remote add <name> <url>` | Add a remote (appended, so it has the lowest priority) |
-| `dpm remote remove <name>` | Remove a remote |
-| `dpm remote ls` | List remotes in priority order |
-| `dpm remote check <name>` | Check that a remote is reachable |
+| `dpm remote add <name> <url> [--token <token>]` | Add a DPM server (any IPFS pinning service works) |
+| `dpm remote remove <name>` | Remove one |
+| `dpm remote ls` | List them |
+| `dpm node [--set <url>]` | Show the local node (version, peer ID, addresses), or set its RPC API URL |
 
 ## Server
 
-The reference server:
-
 ```bash
-PORT=3000 DPM_REGISTRY=/srv/dpm dpm-server
+DPM_KUBO_API=http://127.0.0.1:5001 PORT=3000 dpm-server
 ```
 
-`HOST` sets the bind address. `DPM_ALLOW_PROVIDERS=0` stops the server from fetching dependencies from provider URLs given in pushes.
+| Variable | Meaning |
+|---|---|
+| `PORT`, `HOST` | Where to listen (default 3000, all interfaces) |
+| `DPM_KUBO_API` | The server's Kubo RPC API. Keep it private. |
+| `DPM_DATA` | Where pin requests are stored (default `~/.dpm/server`) |
+| `DPM_TOKENS` | Comma-separated access tokens. If set, adding or withdrawing pins needs one. |
+| `DPM_ANNOUNCE` | Comma-separated multiaddrs clients should connect to (default: the node's own) |
+| `DPM_CHECK` | A command run in each installed package; it is kept only if the command succeeds. A Unilog server uses `unilog check`. |
+
+Expose the server's port and the Kubo node's peer-to-peer port (4001), never its RPC API (5001).

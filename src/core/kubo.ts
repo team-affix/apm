@@ -1,0 +1,216 @@
+import fs from 'fs';
+import path from 'path';
+import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
+import tar from 'tar-stream';
+import { KuboError } from './errors';
+
+/**
+ * How DPM adds content to IPFS. A CID depends on how files are chunked and encoded, so these are fixed: the
+ * same folder always gets the same CID, on every machine. (Kubo's `unixfs-v1-2025` profile: CIDv1, raw
+ * leaves, 1 MiB chunks, SHA-256.)
+ */
+export const IMPORT_SETTINGS = {
+    'cid-version': '1',
+    'raw-leaves': 'true',
+    chunker: 'size-1048576',
+    hash: 'sha2-256',
+    'max-file-links': '1024',
+    'max-hamt-fanout': '256',
+} as const;
+
+/** A file or folder to add, by its path inside the package ('/'-separated). */
+export type Entry = { path: string; dir: true } | { path: string; dir?: false; content: Buffer };
+
+/** The parts of a node's identity peers need: its peer ID and the addresses it can be reached at. */
+export interface NodeInfo {
+    id: string;
+    addresses: string[];
+}
+
+/**
+ * A client for a Kubo node's RPC API (normally http://127.0.0.1:5001). That API is the node's admin interface,
+ * so it must stay private; peers reach the node through its own peer-to-peer port instead.
+ */
+export class Kubo {
+    constructor(
+        public readonly api = process.env.DPM_KUBO_API ?? 'http://127.0.0.1:5001',
+        /** How long a request that may have to search the network can take, e.g. '60s'. */
+        public readonly timeout = '120s',
+    ) {}
+
+    private async call(command: string, params: Record<string, string | string[]> = {}, body?: Buffer, type?: string) {
+        const url = new URL(`/api/v0/${command}`, this.api);
+        for (const [k, v] of Object.entries(params))
+            for (const value of Array.isArray(v) ? v : [v]) url.searchParams.append(k, value);
+        let res: Response;
+        try {
+            res = await fetch(url, {
+                method: 'POST',
+                ...(body && { body, headers: { 'content-type': type ?? 'application/octet-stream' } }),
+            });
+        } catch (e) {
+            throw new KuboError(
+                `Cannot reach the IPFS node at ${this.api} (${(e as Error).message}). Is Kubo running ('ipfs daemon')?`,
+            );
+        }
+        if (!res.ok) {
+            const text = await res.text();
+            let message = text;
+            try {
+                message = (JSON.parse(text) as { Message?: string }).Message ?? text;
+            } catch {
+                // not JSON: keep the text
+            }
+            throw new KuboError(`IPFS ${command} failed: ${message.trim()}`);
+        }
+        return res;
+    }
+
+    private async json<T>(command: string, params: Record<string, string | string[]> = {}): Promise<T> {
+        return (await (await this.call(command, params)).json()) as T;
+    }
+
+    async version(): Promise<string> {
+        return (await this.json<{ Version: string }>('version')).Version;
+    }
+
+    async id(): Promise<NodeInfo> {
+        const r = await this.json<{ ID: string; Addresses: string[] | null }>('id');
+        return { id: r.ID, addresses: r.Addresses ?? [] };
+    }
+
+    /**
+     * Adds a folder, with DPM's fixed import settings, and returns its CID. `pin`: keep it (otherwise only
+     * compute the CID, storing nothing).
+     */
+    async addFolder(entries: readonly Entry[], pin = true): Promise<string> {
+        const boundary = `dpm-${Math.random().toString(36).slice(2)}`;
+        // The folder's own name doesn't affect its CID; only the names of what is inside it do.
+        const root = 'package';
+        const parts: Buffer[] = [];
+        const part = (name: string, type: string, content: Buffer) => {
+            parts.push(
+                Buffer.from(
+                    `--${boundary}\r\n` +
+                        `Content-Disposition: form-data; name="file"; filename="${encodeURIComponent(name)}"\r\n` +
+                        `Content-Type: ${type}\r\n\r\n`,
+                ),
+                content,
+                Buffer.from('\r\n'),
+            );
+        };
+        part(root, 'application/x-directory', Buffer.alloc(0));
+        for (const e of entries)
+            if (e.dir) part(`${root}/${e.path}`, 'application/x-directory', Buffer.alloc(0));
+            else part(`${root}/${e.path}`, 'application/octet-stream', e.content);
+        parts.push(Buffer.from(`--${boundary}--\r\n`));
+
+        const res = await this.call(
+            'add',
+            { ...IMPORT_SETTINGS, pin: String(pin), 'only-hash': String(!pin), progress: 'false', quieter: 'false' },
+            Buffer.concat(parts),
+            `multipart/form-data; boundary=${boundary}`,
+        );
+        const lines = (await res.text())
+            .split('\n')
+            .filter((l) => l.trim())
+            .map((l) => JSON.parse(l) as { Name: string; Hash: string });
+        const top = lines.find((l) => l.Name === root);
+        if (!top) throw new KuboError('IPFS add did not report the folder it added');
+        return top.Hash;
+    }
+
+    /** A file's bytes, by path: `<cid>/dpm.json`. Fetches from the network if needed. */
+    async cat(ipfsPath: string): Promise<Buffer> {
+        const res = await this.call('cat', { arg: ipfsPath, timeout: this.timeout });
+        return Buffer.from(await res.arrayBuffer());
+    }
+
+    /** Whether a path exists, without fetching anything from the network. */
+    async hasLocally(ipfsPath: string): Promise<boolean> {
+        try {
+            await this.call('files/stat', { arg: `/ipfs/${ipfsPath}`, offline: 'true', timeout: '10s' });
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    /** Fetches a CID and everything under it, and keeps it. */
+    async pin(cid: string): Promise<void> {
+        await this.call('pin/add', { arg: cid, recursive: 'true', progress: 'false', timeout: this.timeout });
+    }
+
+    async unpin(cid: string): Promise<void> {
+        await this.call('pin/rm', { arg: cid, recursive: 'true' });
+    }
+
+    /** The CIDs pinned recursively on this node. */
+    async pins(): Promise<string[]> {
+        const r = await this.json<{ Keys?: Record<string, unknown> }>('pin/ls', { type: 'recursive' });
+        return Object.keys(r.Keys ?? {});
+    }
+
+    /** Connects to another node, by a multiaddr that includes its peer ID (`.../p2p/<id>`). */
+    async connect(multiaddr: string): Promise<void> {
+        await this.call('swarm/connect', { arg: multiaddr, timeout: '15s' });
+    }
+
+    /** Writes the folder `cid` (which must be available) to `dest`, which must not exist yet. */
+    async exportTo(cid: string, dest: string): Promise<void> {
+        const res = await this.call('get', { arg: cid, timeout: this.timeout });
+        if (!res.body) throw new KuboError(`IPFS get returned nothing for ${cid}`);
+        const tmp = `${dest}.partial-${process.pid}`;
+        fs.rmSync(tmp, { recursive: true, force: true });
+        fs.mkdirSync(tmp, { recursive: true });
+        const extract = tar.extract();
+        extract.on('entry', (header, stream, next) => {
+            // Entries are '<cid>/<path>'. Anything that would land outside the folder is refused.
+            const rel = header.name.split('/').slice(1).join('/');
+            const target = path.resolve(tmp, rel);
+            if (rel && !target.startsWith(path.resolve(tmp) + path.sep)) {
+                stream.resume();
+                next(new KuboError(`IPFS get returned an unsafe path: ${header.name}`));
+                return;
+            }
+            if (header.type === 'directory') {
+                fs.mkdirSync(target, { recursive: true });
+                stream.resume();
+                stream.on('end', next);
+            } else if (header.type === 'file') {
+                fs.mkdirSync(path.dirname(target), { recursive: true });
+                const out = fs.createWriteStream(target);
+                stream.pipe(out);
+                out.on('finish', next);
+                out.on('error', next);
+            } else {
+                // Symlinks and anything else are not part of DPM packages.
+                stream.resume();
+                stream.on('end', next);
+            }
+        });
+        await pipeline(Readable.fromWeb(res.body as never), extract);
+        fs.renameSync(tmp, dest);
+    }
+}
+
+/** Every file and folder in a package directory, for `addFolder`. Hidden entries and `deps/` are left out. */
+export function readPackageFolder(dir: string, exclude: readonly string[] = ['deps']): Entry[] {
+    const out: Entry[] = [];
+    const walk = (rel: string) => {
+        const abs = path.join(dir, rel);
+        for (const name of fs.readdirSync(abs).sort()) {
+            if (name.startsWith('.')) continue;
+            const relPath = rel ? `${rel}/${name}` : name;
+            if (!rel && exclude.includes(name)) continue;
+            const stat = fs.lstatSync(path.join(abs, name));
+            if (stat.isDirectory()) {
+                out.push({ path: relPath, dir: true });
+                walk(relPath);
+            } else if (stat.isFile()) out.push({ path: relPath, content: fs.readFileSync(path.join(abs, name)) });
+        }
+    };
+    walk('');
+    return out;
+}

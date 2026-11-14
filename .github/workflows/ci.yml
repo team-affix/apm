@@ -14,10 +14,18 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           cache: npm
+      # The end-to-end tests run real IPFS nodes (Kubo). In CI they must run, not be skipped.
+      - name: Install Kubo
+        run: |
+          curl -sSL https://dist.ipfs.tech/kubo/v0.43.1/kubo_v0.43.1_linux-amd64.tar.gz | tar xz
+          sudo mv kubo/ipfs /usr/local/bin/ipfs
+          ipfs version
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm run lint
       - run: npm test
+        env:
+          DPM_REQUIRE_IPFS: '1'
       - run: npm run build
 
   # Publishes a GitHub Release with dpm and dpm-server, after the tests pass. Runs when:
