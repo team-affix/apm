@@ -1,3 +1,4 @@
+# dpm-server. It needs a Kubo node: see docker-compose.yml, which runs both.
 FROM node:22-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json tsconfig.json tsconfig.build.json ./
@@ -10,7 +11,7 @@ WORKDIR /app
 COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
-ENV PORT=3000 DPM_REGISTRY=/data
+ENV PORT=3000 DPM_DATA=/data
 VOLUME /data
 EXPOSE 3000
 CMD ["node", "dist/server/main.js"]

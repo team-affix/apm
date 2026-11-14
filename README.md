@@ -1,54 +1,59 @@
 # DPM: Decentralized Package Manager
 
-DPM stores immutable, content-addressed packages across any number of independent registries.
+DPM is a thin layer over [IPFS](https://ipfs.tech) for packages that depend on each other by content.
 
-- A package is a **name**, a set of **direct dependency IDs**, and an **opaque payload**.
-- Its ID is `name@sha256(content)`. The ID says *what* a package is, never *where* it lives, so any registry with the bytes is a valid source, and every fetch is checked against the ID.
-- Dependencies are resolved by name with **overrides** and **peer-conflict** detection, across whatever registries you point at.
-- Registries are dumb stores, and the resolver is separate.
+- A **package is a folder**, and its **ID is the folder's IPFS CID**. There are no package names: the folder's contents, folder names included, are what it is.
+- A package's `dpm.json` lists the packages it depends on, **by CID only**, never by location. Any IPFS node holding the content is as good a source as any other, and every block is checked against its CID.
+- `dpm install` fetches the whole tree and lays it out **flat**, as `deps/<cid>/`, each package once, plus `deps/graph.json`. Since a CID fixes its entire dependency tree, there is nothing to resolve: DPM has no names, no overrides and no conflicts. What packages mean, and what to do when two of them clash, is left to the tools that use them.
+- **Servers** keep packages and decide what to keep. They speak the standard IPFS Pinning Service API, so you push with Kubo's own `ipfs pin remote add`. Pushing never uploads anything: you send the CID, and the server's IPFS node fetches it from yours.
+- **`dpm` only reads from IPFS.** Adding, pinning and pushing are done with the `ipfs` command; `dpm` tells it what to add (`dpm pack`) and which CIDs make up a tree (`dpm tree`).
 
-**DPM is a protocol** ([spec](docs/protocol.md)), like Git: every server shares the format, the identity rule, the resolution rules and the HTTP interface, but each server sets its own acceptance policy. There is **one client, `dpm`**, for every kind of content and every server. Validating content (checking logic, compiling code) is the job of the content's own tools, run on a project after `dpm install`. This repository contains the spec, a library for building servers (and other tools), and the reference `dpm` and `dpm-server`.
+**DPM is a protocol** ([spec](docs/protocol.md)): every server shares the package format, the install rules and the API, and each sets its own acceptance policy. There is **one client, `dpm`**, for every kind of content and every server. Checking content is the job of the content's own tools: a Unilog server is the reference server configured to run `unilog check`.
 
-DPM is the storage layer of a logic platform for public discourse (see [docs/philosophy](docs/philosophy/index.md)), but it knows nothing about logic and works for any kind of content. It replaces the earlier Agda-specific APM.
+DPM is the storage layer of a logic platform for public discourse (see [docs/philosophy](docs/philosophy/index.md)), but it knows nothing about logic and works for any kind of content.
 
 ## Install
 
-Requires Node.js 20+. Install the npm package from the [latest release](https://github.com/team-affix/apm/releases); it provides `dpm` and `dpm-server`:
+Requires Node.js 20+ and [Kubo](https://github.com/ipfs/kubo/releases), the standard IPFS node (download the `kubo_<version>_<platform>` archive from its GitHub releases; `dist.ipfs.tech` no longer answers since its operator, Shipyard, wound down). Install the npm package from the [latest release](https://github.com/team-affix/apm/releases); it provides `dpm` and `dpm-server`:
 
 ```bash
-npm install -g https://github.com/team-affix/apm/releases/download/v0.1.0/team-affix-dpm-0.1.0.tgz
+npm install -g https://github.com/team-affix/apm/releases/download/v0.2.0/team-affix-dpm-0.2.0.tgz
+ipfs init --profile=unixfs-v1-2025     # once (existing node: ipfs config profile apply unixfs-v1-2025)
+ipfs daemon                             # keep it running
 ```
 
 ## Quickstart
 
 ```bash
-# run a registry
-PORT=3000 dpm-server &
+# run a server (next to its own Kubo node)
+DPM_KUBO_API=http://127.0.0.1:5001 PORT=3000 dpm-server &
 
-dpm remote add home http://localhost:3000
+dpm remote add home http://localhost:3000                      # for dpm to read from
+ipfs pin remote service add home http://localhost:3000 none    # for ipfs to push to
 
-# publish something
+# publish a package
 mkdir base && cd base
-dpm init Base
-echo "axiom A" > Base/axioms.txt
-BASE=$(dpm pack)            # Base@<sha256>
-dpm push $BASE home
+dpm init
+mkdir Kant && echo "duty : \X. good X => ought X;" > Kant/Ethics.ul
+BASE=$(ipfs add -r -Q "$(dpm pack)")         # add it to your node
+ipfs pin remote add --service=home $BASE      # push it: the server fetches it from your node
 
 # depend on it
 mkdir ../app && cd ../app
-dpm init App
+dpm init
 dpm add $BASE
-dpm install                 # writes deps/Base/axioms.txt
+dpm install                                   # writes deps/<cid>/Kant/Ethics.ul and deps/graph.json (nothing pinned)
+dpm tree $BASE | xargs -n1 ipfs pin add       # after checking it: keep it, and its whole tree, in your node
 ```
 
-See the [protocol spec](docs/protocol.md), the [architecture](docs/architecture.md) (library, reference implementations, writing your own server) and the [CLI reference](docs/cli.md).
+See the [protocol spec](docs/protocol.md), the [architecture](docs/architecture.md) (library, server policies), the [CLI reference](docs/cli.md) and the [engineering principles](docs/engineering.md).
 
 ## Library
 
 ```ts
-import { Package, Registry, RemoteRegistry, resolve, ingest } from '@team-affix/dpm';
-import { createServer } from '@team-affix/dpm/server';
-import { pull, push, Project } from '@team-affix/dpm/client';
+import { Kubo, install, PinningService } from '@team-affix/dpm';
+import { createServer, commandPolicy } from '@team-affix/dpm/server';
+import { pack, tree, installProject } from '@team-affix/dpm/client';
 ```
 
 ## Releases
@@ -67,7 +72,7 @@ To release: set a new version in `package.json` and merge to `main`. After the t
 
 ```bash
 npm ci
-npm test          # vitest
+npm test          # vitest; the end-to-end tests run real Kubo nodes (IPFS_BIN or ipfs on the PATH), skipped without one
 npm run lint
 npm run build
 npm run bundle    # single-file dpm and dpm-server in release/
@@ -76,9 +81,9 @@ npm run bundle    # single-file dpm and dpm-server in release/
 Layout:
 
 ```
-src/core     package format, registry, resolver, ingest, protocol client, archive helpers
-src/server   protocol server parts + reference server (dpm-server)
-src/client   projects, push/pull, client home + reference CLI (dpm)
-test/        unit tests and end-to-end tests against real servers
+src/core     dpm.json, the Kubo RPC client, install, the Pinning Service API client
+src/server   the Pinning Service API server with policies (dpm-server)
+src/client   pack / tree / install, client config, and the CLI (dpm)
+test/        unit tests, and end-to-end tests with real Kubo nodes and servers
 docs/        protocol spec, architecture, CLI and philosophy
 ```

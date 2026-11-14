@@ -1,83 +1,81 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { DpmError, Registry, RemoteRegistry } from '../core';
+import { DpmError, Kubo } from '../core';
 
 /**
- * A client's state directory: its local registry and its list of remotes.
- *
- * The `dpm` CLI uses `~/.dpm/client`: one local registry for all content. The registry is a cache of
- * hash-verified bytes. It never judges content; that's done by each content type's own tools.
- *
- *   <home>/registry/       local registry
- *   <home>/remotes.json    remote registries, in priority order
+ * A remote DPM server, which `dpm` only reads from: which packages it keeps, and its node's addresses. To push to
+ * it, use IPFS's own remote pinning (`ipfs pin remote add`).
  */
-export class ClientHome {
-    constructor(public readonly dir: string) {}
-
-    /** The `dpm` CLI's home: `$DPM_HOME`, or `~/.dpm/client`. */
-    static dpm(): ClientHome {
-        return new ClientHome(process.env.DPM_HOME ?? path.join(os.homedir(), '.dpm', 'client'));
-    }
-
-    /** The local registry, created on first use. */
-    registry(): Registry {
-        return Registry.openOrCreate(path.join(this.dir, 'registry'));
-    }
-
-    remotes(): Remotes {
-        return Remotes.load(path.join(this.dir, 'remotes.json'));
-    }
-}
-
 export interface Remote {
     name: string;
     url: string;
 }
 
-/** Configured remote registries, in priority order. */
-export class Remotes {
+interface ConfigFile {
+    /** The local Kubo node's RPC API. */
+    kubo?: string;
+    remotes: Remote[];
+}
+
+/**
+ * The client's configuration: `$DPM_HOME/config.json`, by default `~/.dpm/client/config.json`. Packages
+ * themselves live in IPFS, not here; `dpm` only reads from IPFS, and all changes to what a node keeps are made
+ * with the `ipfs` command.
+ */
+export class ClientConfig {
     private constructor(
         private readonly file: string,
-        private readonly entries: Remote[],
+        private readonly data: ConfigFile,
     ) {}
 
-    static load(file: string): Remotes {
-        if (!fs.existsSync(file)) return new Remotes(file, []);
-        const parsed = JSON.parse(fs.readFileSync(file, 'utf8')) as unknown;
-        if (!Array.isArray(parsed)) throw new DpmError(`${file} must contain a JSON array of { name, url }`);
-        return new Remotes(file, parsed as Remote[]);
+    static load(home = process.env.DPM_HOME ?? path.join(os.homedir(), '.dpm', 'client')): ClientConfig {
+        const file = path.join(home, 'config.json');
+        if (!fs.existsSync(file)) return new ClientConfig(file, { remotes: [] });
+        const data = JSON.parse(fs.readFileSync(file, 'utf8')) as Partial<ConfigFile>;
+        if (!Array.isArray(data.remotes ?? [])) throw new DpmError(`${file}: "remotes" must be an array`);
+        return new ClientConfig(file, { ...data, remotes: data.remotes ?? [] });
     }
 
     save(): void {
         fs.mkdirSync(path.dirname(this.file), { recursive: true });
-        fs.writeFileSync(this.file, JSON.stringify(this.entries, null, 4) + '\n');
+        fs.writeFileSync(this.file, JSON.stringify(this.data, null, 4) + '\n');
     }
 
-    list(): readonly Remote[] {
-        return this.entries;
+    /** The local Kubo node: `$DPM_KUBO_API`, else the configured one, else http://127.0.0.1:5001. */
+    kubo(timeout?: string): Kubo {
+        return new Kubo(process.env.DPM_KUBO_API ?? this.data.kubo ?? 'http://127.0.0.1:5001', timeout);
     }
 
-    add(name: string, url: string): void {
-        if (this.entries.some((r) => r.name === name)) throw new DpmError(`Remote '${name}' already exists`);
-        if (!URL.canParse(url)) throw new DpmError(`Invalid URL: ${url}`);
-        this.entries.push({ name, url });
+    setKubo(api: string): void {
+        if (!URL.canParse(api)) throw new DpmError(`Invalid URL: ${api}`);
+        this.data.kubo = api;
     }
 
-    remove(name: string): void {
-        const i = this.entries.findIndex((r) => r.name === name);
+    remotes(): readonly Remote[] {
+        return this.data.remotes;
+    }
+
+    addRemote(remote: Remote): void {
+        if (this.data.remotes.some((r) => r.name === remote.name))
+            throw new DpmError(`Remote '${remote.name}' already exists`);
+        if (!URL.canParse(remote.url)) throw new DpmError(`Invalid URL: ${remote.url}`);
+        this.data.remotes.push(remote);
+    }
+
+    removeRemote(name: string): void {
+        const i = this.data.remotes.findIndex((r) => r.name === name);
         if (i < 0) throw new DpmError(`No remote named '${name}'`);
-        this.entries.splice(i, 1);
+        this.data.remotes.splice(i, 1);
     }
 
-    get(name: string): RemoteRegistry {
-        const entry = this.entries.find((r) => r.name === name);
-        if (!entry) throw new DpmError(`No remote named '${name}'`);
-        return new RemoteRegistry(entry.url);
-    }
-
-    /** All remotes as registries, optionally excluding some by name. */
-    all(except: readonly string[] = []): RemoteRegistry[] {
-        return this.entries.filter((r) => !except.includes(r.name)).map((r) => new RemoteRegistry(r.url));
+    /** Remotes by name (all of them if none are named). */
+    select(names: readonly string[] = []): Remote[] {
+        if (!names.length) return [...this.data.remotes];
+        return names.map((n) => {
+            const r = this.data.remotes.find((x) => x.name === n);
+            if (!r) throw new DpmError(`No remote named '${n}'`);
+            return r;
+        });
     }
 }

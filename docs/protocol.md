@@ -1,76 +1,76 @@
 # The DPM protocol
 
-DPM is a protocol, in the way Git is: a data format, an identity rule, dependency-resolution rules, and an HTTP interface. Anyone may implement a client or server. What every implementation shares is defined here. What a server chooses to *accept* is its own policy.
+DPM is a thin layer over IPFS. IPFS provides identity, storage, transfer and verification; DPM adds only what IPFS does not: how a package names its dependencies, how they are installed, and how servers are asked to keep packages. Anyone may implement a client or server. What a server chooses to *keep* is its own policy.
 
 "MUST", "MUST NOT" and "MAY" are used in their usual specification sense.
 
 ## 1. Packages
 
-A package is a **name**, a set of **direct dependency IDs**, and an opaque **payload**. Encoding (integers are u32 little-endian):
+A **package is a folder**, added to IPFS. Its **ID is the folder's CID**. There are no package names: what is inside the folder, folder names included, is part of its content and so part of its CID.
 
-| Field | Encoding |
+- A package MUST contain `dpm.json` at its top level, listing the packages it depends on, by CID:
+
+  ```json
+  { "deps": ["bafy...", "bafy..."] }
+  ```
+
+  `deps` MUST contain only CIDs, unique and sorted (`[]` for none). No other fields are allowed. `dpm.json` is what makes a folder a DPM package: a folder without one is not a package, and a dependency that isn't a package is an error. Since the file is part of the content, any node can tell whether a CID is a DPM package by looking inside it; nothing else marks packages.
+- **Dependencies are referenced by CID only, never by location.** Any node holding the content is an equally valid source, and IPFS checks every block against its CID.
+- **Import settings are fixed**, so the same folder gets the same CID on every machine: CIDv1, raw leaves, SHA-256, 1 MiB chunks, at most 1024 links per file node, and a HAMT fanout of 256. This is Kubo's `unixfs-v1-2025` profile ([IPIP-499](https://specs.ipfs.tech/ipips/ipip-0499/)), which nodes SHOULD apply so very large folders are also sharded the same way.
+- A project's package is its folder without `deps/` and without hidden entries (names starting with `.`). Symlinks are not part of packages.
+
+Because a CID fixes the package and, through `dpm.json`, every CID it depends on, **a CID fixes its entire dependency tree.** Nothing outside the package can change what its dependencies are.
+
+## 2. Installing
+
+Installing a project means:
+
+1. Fetching every package reachable from the project's `dpm.json`, following each package's `dpm.json`. Each CID is fetched once, however many packages depend on it.
+2. Writing each package to `deps/<cid>/`. The layout is **flat**: every package sits directly under `deps/`, however deep it is in the tree.
+3. Writing `deps/graph.json`: `{ "root": [<the project's deps>], "packages": { "<cid>": { "deps": [...] } } }`.
+4. Removing any `deps/<cid>/` no longer in the graph.
+
+Installation fails if any CID in the tree cannot be fetched.
+
+DPM never interprets content. What the packages mean, and what to do if two of them clash (for example, two different packages providing the same module), is up to the tools that use them, which can read everything from `deps/` and `graph.json`.
+
+## 3. Servers
+
+A DPM server keeps packages and makes them available. It speaks the **IPFS Pinning Service API** ([spec](https://ipfs.github.io/pinning-services-api-spec/)), so any IPFS tool can use it:
+
+| Request | Meaning |
 |---|---|
-| magic | `DPM1` (4 bytes) |
-| name | u32 byte length + UTF-8 |
-| deps | u32 count, then each ID as u32 byte length + UTF-8 |
-| payload | the remaining bytes, opaque |
+| `POST /pins` `{ "cid", "name"?, "origins"? }` | Please keep `cid`. `origins` are multiaddrs of nodes that have it. |
+| `GET /pins?cid=…&status=…&limit=…` | Requests, filtered by CID and state (default `pinned`) |
+| `GET /pins/:requestid` | One request's status |
+| `DELETE /pins/:requestid` | Withdraw a request |
 
-- Encoding is canonical: dependency IDs MUST be unique and sorted by their UTF-8 bytes. Decoders MUST reject any bytes that are not the canonical encoding of their own contents.
-- A name MUST be non-empty and at most 200 bytes, MUST NOT be `.` or `..`, and MUST NOT contain whitespace, control characters, or any of `@ / \ : * ? " < > |`.
-- The payload has no meaning at the protocol level. The content's own tools (e.g. a logic checker or a compiler) give it one.
+**What a server keeps** is answered in Kubo's own RPC format, so clients ask a server exactly what they ask their local node, and the stock `ipfs --api=<server>` command works:
 
-## 2. Identity
-
-A package's ID is `<name>@<lowercase hex SHA-256 of its full encoding>`.
-
-- **Dependencies are referenced by ID only, never by URL or location.** Where a package comes from is never part of any package. Any holder of the bytes is an equally valid source.
-- The name is inside the hashed bytes, so it can never change for a given ID. The name in an ID can be read without fetching the package.
-- **Hash verification is mandatory.** Implementations MUST check that bytes hash to the expected ID before using them for anything, whether they were received in a push, fetched from a server or read from storage. Bytes that fail MUST be discarded.
-
-## 3. Resolution
-
-Resolving a root (a package, or an unpacked project with a name and deps) yields its dependency tree. The rules define which packages a dependency list actually means, so every implementation MUST apply them identically:
-
-1. A resolved tree contains at most one package per name.
-2. **Overrides:** if a package directly depends on a package named N, every package named N deeper in that package's subtree is replaced by it. The root occupies its own name.
-3. **Peer conflicts:** if two different packages named N meet in the tree and no common ancestor overrides N, resolution fails.
-4. Overridden dependencies are not part of the tree. Implementations SHOULD NOT fetch them, since the name in the ID is enough to know they're overridden.
-5. A subtree's contents depend on the overrides above it. A package reached by paths with different overrides MUST be checked under each of them.
-6. Resolution fails if any dependency in the tree cannot be obtained.
-
-Because overrides are hierarchical, a package's meaning depends on the packages above it. A package that is valid inside one tree (where an ancestor overrides one of its dependencies) may not resolve on its own. Validity therefore belongs to a resolved tree, not to an ID by itself.
-
-## 4. HTTP interface
-
-| Request | Success response |
+| Request | Meaning |
 |---|---|
-| `GET /health` | `{ "status": "ok" }` |
-| `GET /packages` | `{ "ids": [...] }` |
-| `GET /packages/:id` | the package's raw bytes (`application/octet-stream`) |
-| `POST /packages/has` `{ "ids": [...] }` | `{ "ids": [...] }`, the subset the server holds |
-| `POST /packages` `{ "packages": [{ "id", "data" }...], "providers": [url...] }` | `{ "ids": [...], "stored": [...] }` |
+| `POST /api/v0/pin/ls[?arg=<cid>]` | the server's DPM packages: every pinned folder with a `dpm.json` (including any dependencies it keeps), and nothing else on its node. With `arg`, an error if it doesn't keep that CID. |
+| `POST /api/v0/id` | the server's node: its peer ID and the addresses to connect to |
+| `POST /api/v0/version` | the node's version (the `ipfs` command checks it first) |
 
-In a push, `data` is the base64 package bytes and `id` is the ID the client claims for them. `providers` are registry URLs where the server may look for dependencies.
+These are read-only, answered by the server itself. Nothing else under `/api/v0/` is answered, and nothing is passed through to the node's private RPC API.
 
-Errors are JSON `{ "error": "<message>" }`:
+Statuses go `queued`, then `pinning`, then `pinned` or `failed`. Each carries the server's `delegates`: multiaddrs of its node. A failure's reason is in `info.reason`.
 
-| Status | Meaning |
-|---|---|
-| 400 | malformed request, or a pushed package failed hash verification |
-| 404 | no such package or endpoint |
-| 413 | request too large |
-| 422 | not accepted: the package doesn't resolve, or the server's policy rejects it |
-| 500 | server error |
-
-## 5. Server obligations and freedoms
+**Content never travels over this API.** To push, a client sends the CID and its own node's addresses as `origins`, then connects its node to the server's `delegates`. The server's node fetches the package over IPFS, from the origins or from any other node that has it. Since the client opened the connection, this works even if the client cannot be reached from outside. Kubo does all of this itself: `ipfs pin remote add --service=<server> <cid>`.
 
 A server:
 
-- MUST hash-verify every pushed package against its claimed ID **before doing anything else** with the push. One failure rejects the whole push with 400.
-- MUST only ever serve, under an ID, bytes that hash to that ID.
-- MUST treat a push as all-or-nothing: either every package in it is stored, or none is.
-- MAY reject any push for any reason, with 422. Acceptance policy is the server's own: the reference server accepts any batch whose packages all belong to trees that resolve, a logic server also requires logical validity, and an operator may add size limits or allow-lists.
-- MAY ignore `providers`, or limit how many it uses.
-- Is NOT required to hold the dependencies of the packages it stores.
+- MUST fetch the package's whole tree (following `dpm.json`) before reporting it `pinned`, so its policy can look at all of it, and MUST keep the package until the request is withdrawn.
+- MAY pin the package's dependencies too. The reference server pins only what was pushed, by default: it fetches the dependencies to apply its policy, without pinning them, so they stay only as cached data until garbage collection, as with anything a Kubo node fetches (`DPM_KEEP_DEPS=1` pins them). A client that wants a server to keep dependencies pushes each of them (`dpm tree <cid> | xargs -n1 ipfs pin remote add --service=<server>`).
+- SHOULD delete what it refused or released (garbage-collect its node), so it stops serving it. A server SHOULD use a node of its own, so everything the node holds is something the server chose to keep.
+- MAY refuse any package for any reason, reporting it `failed` with a reason. Acceptance policy is the server's own: the reference server keeps any package whose tree can be fetched, a logic server also requires the content to check, and an operator may add size limits or access tokens.
+- MAY require an access token (`Authorization: Bearer <token>`) for adding or withdrawing pins.
 
-Clients MUST hash-verify everything they fetch. Servers are untrusted.
+Since a CID fixes its whole tree, a server that keeps a CID after checking it has checked exactly that content, permanently.
+
+## 4. Nodes
+
+A node may be shared with other applications. A node's DPM packages are its pinned folders that contain a `dpm.json`, however they were pinned. Pins carry no DPM-specific name or label.
+
+A node's RPC API is its private admin interface and MUST NOT be exposed. Nodes reach each other through IPFS's own peer-to-peer port. A server exposes that port and its Pinning Service API; a client needs neither exposed, since it only connects out.
