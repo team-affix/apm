@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { installProject, pack, Remote, remoteNode, status, tree } from '../src/client';
 import { Kubo, PinningService, readGraph, writeManifest } from '../src/core';
 import { commandPolicy } from '../src/server';
-import { IPFS_BIN, makeWritable, readTree, startNode, startServer, tmpDir, writeTree } from './helpers';
+import { IPFS_BIN, readTree, startNode, startServer, tmpDir, writeTree } from './helpers';
 
 /** A package folder with the given files and dependencies. */
 function project(files: Record<string, string>, deps: string[] = []): string {
@@ -33,7 +33,6 @@ async function addPacked(dir: string, node: Kubo, ...extra: string[]): Promise<s
     try {
         return await ipfs(node, 'add', '-r', '-Q', ...extra, folder);
     } finally {
-        makeWritable(folder);
         fs.rmSync(folder, { recursive: true });
     }
 }
@@ -61,7 +60,6 @@ const REFUSED = /remote service failed to pin/;
 
 describe('dpm pack', () => {
     const MANIFEST_TEXT = '{\n    "deps": []\n}\n';
-    const writable = (p: string) => (fs.statSync(p).mode & 0o222) !== 0;
 
     it('writes the package without deps/ and hidden files, to a temporary folder named by a GUID', () => {
         const dir = project({ 'Kant/Ethics.ul': 'x', 'deps/something/file': 'installed', '.git/HEAD': 'ref' });
@@ -71,16 +69,8 @@ describe('dpm pack', () => {
             expect(path.basename(folder)).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
             expect(readTree(folder)).toEqual({ 'Kant/Ethics.ul': 'x', 'dpm.json': MANIFEST_TEXT });
         } finally {
-            makeWritable(folder);
             fs.rmSync(folder, { recursive: true });
         }
-    });
-
-    it('makes everything it writes read-only', () => {
-        const out = path.join(tmpDir(), 'kant');
-        pack(project({ 'Kant/Ethics.ul': 'x' }), out);
-        for (const p of [out, path.join(out, 'Kant'), path.join(out, 'Kant/Ethics.ul'), path.join(out, 'dpm.json')])
-            expect(writable(p)).toBe(false);
     });
 
     it('writes to a folder of your choosing, but never over an existing one', () => {

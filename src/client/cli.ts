@@ -93,7 +93,7 @@ program
 program
     .command('pack')
     .description(
-        'Write the project\'s package (everything except deps/ and hidden files) to a new, read-only folder, and print the folder. Without -o, it is a temporary folder named by a random GUID. Add it with: ipfs add -r -Q "$(dpm pack)"',
+        'Write the project\'s package (everything except deps/ and hidden files) to a new folder, and print the folder. Without -o, it is a temporary folder named by a random GUID. Add it with: ipfs add -r -Q "$(dpm pack)"',
     )
     .option('-o, --out <folder>', 'write the package to this new folder instead')
     .action(run((opts: { out?: string }) => console.log(pack(dir(), opts.out))));

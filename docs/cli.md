@@ -26,7 +26,7 @@ A project is a folder with a `dpm.json` (`{ "deps": [CID, ...] }`); the folder i
 | `dpm remove <cid...>` | Remove direct dependencies from `dpm.json` |
 | `dpm install [-r <remote...>] [--timeout 120s]` | Fetch every dependency into `deps/<cid>/` and write `deps/graph.json`. Remotes are asked whether they keep each package, and the nodes of those that do are connected to first. Nothing is pinned: fetched packages are cached like anything your node downloads. |
 | `dpm ls` | List the project's installed packages: `*` marks direct dependencies, followed by each package's top-level folders |
-| `dpm pack [-o <folder>]` | Write the project's package (everything except `deps/` and hidden files) to a new folder, and print the folder's path. Without `-o`, it is a temporary folder named by a random GUID; with `-o`, the folder must not exist yet. Everything in it is read-only: it is the package, to be added with `ipfs add -r` as it is, not edited. (To delete it: `chmod -R u+w <folder>`, then remove it.) `pack` doesn't touch IPFS. |
+| `dpm pack [-o <folder>]` | Write the project's package (everything except `deps/` and hidden files) to a new folder, and print the folder's path. Without `-o`, it is a temporary folder named by a random GUID; with `-o`, the folder must not exist yet. The folder is the package, to be added with `ipfs add -r` as it is, not edited. `pack` doesn't touch IPFS. |
 
 ## Packages
 

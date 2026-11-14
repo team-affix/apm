@@ -18,8 +18,8 @@ import { Remote } from './config';
 /**
  * Writes the package a project folder makes (everything except `deps/` and hidden files) to a new folder, and
  * returns the folder. The folder is `out`, which must not exist yet, or else a new temporary folder named by a
- * random GUID. Everything written is made read-only: the folder is the package, to be added as it is
- * (`ipfs add -r <folder>`), not edited. (To delete it: `chmod -R u+w <folder>`, then remove it.)
+ * random GUID, so it looks like what it is: the package, to be added as it is (`ipfs add -r <folder>`), not a
+ * project to edit.
  *
  * Nothing touches IPFS.
  */
@@ -30,19 +30,11 @@ export function pack(dir: string, out?: string): string {
     if (fs.existsSync(folder)) throw new DpmError(`${folder} already exists: pack writes a new folder`);
     fs.mkdirSync(path.dirname(folder), { recursive: true });
     fs.mkdirSync(folder);
-    const dirs = [folder];
     for (const e of entries) {
         const target = path.join(folder, ...e.path.split('/'));
-        if (e.dir) {
-            fs.mkdirSync(target, { recursive: true });
-            dirs.push(target);
-        } else {
-            fs.writeFileSync(target, e.content);
-            fs.chmodSync(target, 0o444);
-        }
+        if (e.dir) fs.mkdirSync(target, { recursive: true });
+        else fs.writeFileSync(target, e.content);
     }
-    // Deepest folders first, so each is still writable while its subfolders are made read-only.
-    for (const d of dirs.reverse()) fs.chmodSync(d, 0o555);
     return folder;
 }
 
