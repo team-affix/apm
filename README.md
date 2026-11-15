@@ -73,6 +73,8 @@ To release: set a new version in `package.json` and merge to `main`. After the t
 ```bash
 npm ci
 npm test          # vitest; the end-to-end tests run real Kubo nodes (IPFS_BIN or ipfs on the PATH), skipped without one
+npm run test:e2e  # every user story, with real Kubo nodes, a dpm-server running unilog check, and real Unilog
+                  # packages (needs ipfs, and unilog on the PATH or UNILOG_DIR=<a built unilog checkout>)
 npm run lint
 npm run build
 npm run bundle    # single-file dpm and dpm-server in release/
@@ -84,6 +86,6 @@ Layout:
 src/core     dpm.json, the read-only Kubo client, install
 src/server   the Pinning Service API server with policies (dpm-server), its Kubo admin client, and the Pinning Service API client
 src/client   pack / tree / install, client config, and the CLI (dpm)
-test/        unit tests, and end-to-end tests with real Kubo nodes and servers
+test/        unit tests, end-to-end tests with real Kubo nodes and servers, and test/e2e/user-stories.sh (every user story, with Unilog)
 docs/        protocol spec, architecture, CLI and philosophy
 ```
