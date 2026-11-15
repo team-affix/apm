@@ -1,19 +1,23 @@
 # How DPM uses IPFS
 
-**DPM is a read-only interface to IPFS.** It reads packages by CID, through one Kubo node. It never changes what any node keeps, and it doesn't care where that node is: on your machine, or on another one.
+**DPM is a read-only interface to IPFS.** It reads packages by CID through a Kubo node, and never changes what any node keeps.
 
-## One node, anywhere
+## The standard setup: Kubo running on your machine
 
-DPM talks to a single Kubo node over HTTP, through Kubo's HTTP API. Kubo calls it its "RPC API", but it's plain HTTP requests, nothing more. To DPM, that node stands for the whole IPFS network. When DPM asks for a CID, Kubo finds which nodes have it, fetches it from them, checks every block against its hash, and hands the content back. So DPM never needs to know where a package is stored.
+This is how IPFS is normally used, and all DPM needs:
 
-Since it's only HTTP, the node can be anywhere:
+```bash
+ipfs init --profile=unixfs-v1-2025   # once
+ipfs daemon                           # leave it running
+```
 
-- **On your machine** (the default): `http://127.0.0.1:5001`.
-- **On another machine:** `dpm node --set <url> --auth <secret>`, or the `DPM_KUBO_API` and `DPM_KUBO_AUTH` environment variables.
+That's all. `dpm` and the `ipfs` command both talk to it automatically, at `http://127.0.0.1:5001`, with nothing to configure. (For a Kubo set up before, run `ipfs config profile apply unixfs-v1-2025` once. It makes everyone's nodes split files the same way, so the same files get the same CIDs and IPFS stores and transfers each one once.)
+
+Kubo is the part that knows the network. When DPM asks for a CID, Kubo finds which nodes have it, fetches it from them, checks every block against its hash, and hands the content back. So DPM never needs to know where a package is stored.
 
 ## What DPM asks Kubo
 
-DPM uses exactly four of Kubo's commands, all of them read-only:
+DPM talks to Kubo over Kubo's HTTP API (Kubo calls it its "RPC API", but it's plain HTTP requests). It uses exactly four commands, all of them read-only:
 
 | Command | What for |
 |---|---|
@@ -22,35 +26,7 @@ DPM uses exactly four of Kubo's commands, all of them read-only:
 | `/api/v0/get` | download a package's folder, as a tar stream that DPM unpacks into `deps/<cid>/` |
 | `/api/v0/version` | show which Kubo `dpm node` is talking to |
 
-That's everything `dpm install`, `dpm tree` and `dpm node` need. Nothing DPM does needs Kubo's admin commands.
-
-## Reaching a node on another machine safely
-
-By default, Kubo's HTTP API allows every command, including deleting content, changing settings and shutting the node down. So it must never be reachable from other machines as it is.
-
-Kubo can require a secret for every request, and limit each secret to particular commands (its `API.Authorizations` setting). Give DPM a secret allowed only the four commands above:
-
-```bash
-ipfs config --json API.Authorizations '{
-  "admin": { "AuthSecret": "bearer:<a long random admin token>", "AllowedPaths": ["/api/v0"] },
-  "dpm":   { "AuthSecret": "bearer:<a long random read token>",
-             "AllowedPaths": ["/api/v0/cat", "/api/v0/refs", "/api/v0/get", "/api/v0/version"] }
-}'
-```
-
-Then, on the machine running `dpm`:
-
-```bash
-dpm node --set http://<host>:5001 --auth bearer:<the read token>
-```
-
-Once any secret is set, Kubo refuses every request without one, so the `ipfs` command needs the admin secret too (`ipfs --api-auth=bearer:<admin token> ...`). With the read token, every other command is refused. The tests check this against a real Kubo.
-
-Use HTTPS (a reverse proxy in front of Kubo) when the node is reached over the internet, so the token isn't sent in the clear.
-
-## Trust
-
-DPM doesn't check content against its CID itself: Kubo does. So whoever runs the node decides what DPM receives. A node on your own machine, or on a server you control, is as trustworthy as you are. A node someone else runs could hand you different content for a CID without DPM noticing. **Point DPM only at a Kubo node you trust.**
+That's everything `dpm install`, `dpm tree` and `dpm node` need. The `dpm` code contains no other request: the admin ones (pinning, garbage collection and so on) exist only in `dpm-server`.
 
 ## Everything else is the `ipfs` command
 
@@ -62,3 +38,21 @@ The dividing line:
 `dpm pack` writes the package to a folder on disk and doesn't touch IPFS at all. You add that folder with `ipfs add -r`.
 
 A DPM server is a separate thing: a standard IPFS pinning service with its own Kubo node, which only Kubo talks to (`ipfs pin remote add`). See [protocol.md](protocol.md).
+
+## Optional: a Kubo on another machine
+
+Most users never need this. Since DPM only sends HTTP requests to a URL, it can also read through a Kubo on another machine: `dpm node --set <url> --auth <secret>`, or the `DPM_KUBO_API` and `DPM_KUBO_AUTH` environment variables. The `ipfs` command can do the same with `--api=<address> --api-auth=<secret>` on every command.
+
+That Kubo's HTTP API allows every command by default, including deleting content and shutting the node down, so it must not be reachable from other machines as it is. Kubo can require a secret for every request, and limit each secret to particular commands (its `API.Authorizations` setting). For DPM, a secret allowed only the four commands above:
+
+```bash
+ipfs config --json API.Authorizations '{
+  "admin": { "AuthSecret": "bearer:<a long random admin token>", "AllowedPaths": ["/api/v0"] },
+  "dpm":   { "AuthSecret": "bearer:<a long random read token>",
+             "AllowedPaths": ["/api/v0/cat", "/api/v0/refs", "/api/v0/get", "/api/v0/version"] }
+}'
+```
+
+Once any secret is set, Kubo refuses every request without one. Put HTTPS (a reverse proxy) in front of Kubo when it's reached over the internet, so secrets aren't sent in the clear.
+
+**Trust:** Kubo, not DPM, checks content against its CID, so whoever runs that Kubo decides what DPM receives. Use only a Kubo you trust.

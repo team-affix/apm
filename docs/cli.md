@@ -1,6 +1,6 @@
 # CLI reference
 
-`dpm` does package management. It's a **read-only interface to IPFS**: it reads packages through one Kubo node, on your machine or another, and never adds, pins or deletes anything. Everything else is done with the `ipfs` command ([how DPM uses IPFS](ipfs.md)):
+`dpm` does package management. It's a **read-only interface to IPFS**: it reads packages through the Kubo node running on your machine, and never adds, pins or deletes anything. Everything else is done with the `ipfs` command ([how DPM uses IPFS](ipfs.md)):
 
 | To | Run |
 |---|---|
@@ -13,9 +13,9 @@
 | fetch from a server | `ipfs swarm peering add <the server node's address>` (see below) |
 | get a package's files to work on | `ipfs get <cid> -o <folder>`, then `dpm install` in it |
 
-`dpm` talks to Kubo through Kubo's HTTP API (which Kubo calls its RPC API): `http://127.0.0.1:5001` by default, set with `dpm node --set <url> [--auth <secret>]`, or `DPM_KUBO_API` and `DPM_KUBO_AUTH`. The node can be on another machine, if it requires a secret limited to the read-only commands `dpm` uses; see [ipfs.md](ipfs.md). Point `dpm` only at a node you trust: Kubo, not `dpm`, checks content against its CID. Kubo does all the work of finding, fetching and verifying content; `dpm` only asks it for packages by CID. Settings are in `~/.dpm/client/config.json` (override the folder with `DPM_HOME`).
+**Setup:** run Kubo on your machine, the standard way to use IPFS: `ipfs init --profile=unixfs-v1-2025` once, then `ipfs daemon`, left running. `dpm` and the `ipfs` command both talk to it automatically (at `http://127.0.0.1:5001`), with nothing to configure. For a Kubo set up before, run `ipfs config profile apply unixfs-v1-2025` once.
 
-Start the node first: `ipfs init --profile=unixfs-v1-2025` (once), then `ipfs daemon`. For an existing node, `ipfs config profile apply unixfs-v1-2025`. Everyone using the same import settings means the same files get the same CIDs, so IPFS stores and transfers each file once.
+Kubo does all the work of finding, fetching and verifying content; `dpm` only asks it for packages by CID. (Reading through a Kubo on another machine is possible too, but optional: see [ipfs.md](ipfs.md).) Settings are in `~/.dpm/client/config.json` (override the folder with `DPM_HOME`).
 
 ## Projects
 
