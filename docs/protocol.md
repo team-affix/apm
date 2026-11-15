@@ -43,9 +43,8 @@ A DPM server keeps packages and makes them available. It speaks the **IPFS Pinni
 | `POST /pins` `{ "cid", "name"?, "origins"? }` | Please keep `cid`. `origins` are multiaddrs of nodes that have it. |
 | `GET /pins?cid=…&status=…&limit=…` | Requests, filtered by CID and state (default `pinned`) |
 | `GET /pins/:requestid` | One request's status |
-| `DELETE /pins/:requestid` | Withdraw a request |
 
-A server answers nothing else. In particular, it never exposes its node's RPC API.
+A server answers nothing else. **Removing a request (`DELETE /pins/:requestid`) is not part of DPM:** a server answers it with `405`, because what it keeps, it keeps for good. In particular, it never exposes its node's RPC API.
 
 Statuses go `queued`, then `pinning`, then `pinned` or `failed`. Each carries the server's `delegates`: multiaddrs of its node. A failure's reason is in `info.reason`.
 
@@ -53,11 +52,11 @@ Statuses go `queued`, then `pinning`, then `pinned` or `failed`. Each carries th
 
 A server:
 
-- MUST fetch the package's whole tree (following `dpm.json`) before reporting it `pinned`, so its policy can look at all of it, and MUST keep the package until the request is withdrawn.
+- MUST fetch the package's whole tree (following `dpm.json`) before reporting it `pinned`, so its policy can look at all of it, and MUST keep a package it accepted permanently. Packages build on each other by CID, so a package that others depend on must not disappear.
 - MAY pin the package's dependencies too. The reference server pins only what was pushed, by default: it fetches the dependencies to apply its policy, without pinning them, so they stay only as cached data until garbage collection, as with anything a Kubo node fetches (`DPM_KEEP_DEPS=1` pins them). A client that wants a server to keep dependencies pushes each of them (each CID `dpm tree <cid>` prints, with `ipfs pin remote add`).
-- SHOULD delete what it refused or released (garbage-collect its node), so it stops serving it. A server SHOULD use a node of its own, so everything the node holds is something the server chose to keep.
+- SHOULD delete what it refused (garbage-collect its node), so it stops serving it. A server SHOULD use a node of its own, so everything the node holds is something the server chose to keep.
 - MAY refuse any package for any reason, reporting it `failed`, with a reason in `info.reason` if it likes. Acceptance policy is the server's own: the reference server keeps any package whose tree can be fetched, a logic server also requires the content to check, and an operator may add size limits or access tokens.
-- MAY require an access token (`Authorization: Bearer <token>`) for adding or withdrawing pins.
+- MAY require an access token (`Authorization: Bearer <token>`) for adding pins.
 
 Since a CID fixes its whole tree, a server that keeps a CID after checking it has checked exactly that content, permanently.
 

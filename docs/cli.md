@@ -70,9 +70,9 @@ DPM_KUBO_API=http://127.0.0.1:5001 PORT=3000 dpm-server
 | `PORT`, `HOST` | Where to listen (default 3000, all interfaces) |
 | `DPM_KUBO_API` | The server's Kubo RPC API. Keep it private. |
 | `DPM_DATA` | Where pin requests are stored (default `~/.dpm/server`) |
-| `DPM_TOKENS` | Comma-separated access tokens. If set, adding or withdrawing pins needs one. |
+| `DPM_TOKENS` | Comma-separated access tokens. If set, adding pins needs one. (Nothing can be removed: the server keeps what it accepts for good.) |
 | `DPM_ANNOUNCE` | Comma-separated multiaddrs of the server's node, for clients to peer with (default: the node's own) |
 | `DPM_CHECK` | A command run in each installed package; it is kept only if the command succeeds. A Unilog server uses `unilog check`. |
 | `DPM_KEEP_DEPS` | `1`: pin each package's dependencies too. By default only what was pushed is pinned; dependencies are fetched for the check without being pinned, so they stay only as cached data until garbage collection, as with anything a Kubo node fetches. |
 
-Expose the server's port and the Kubo node's peer-to-peer port (4001), never its RPC API (5001). Give the server a Kubo node of its own: after refusing or releasing a package, the server garbage-collects the node so it stops serving that content, which deletes anything unpinned.
+Expose the server's port and the Kubo node's peer-to-peer port (4001), never its RPC API (5001). Give the server a Kubo node of its own: after refusing a package, the server garbage-collects the node so it stops serving that content, which deletes anything unpinned.

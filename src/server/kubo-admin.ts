@@ -8,7 +8,7 @@ export interface NodeInfo {
 
 /**
  * The admin requests a DPM server makes on its own Kubo node, on top of the read-only ones `dpm` uses:
- * pinning what it decided to keep, unpinning what it released, garbage collection, and connecting to the nodes
+ * pinning what it decided to keep, unpinning to undo a half-finished pinning, garbage collection, and connecting to the nodes
  * a package is pushed from. `dpm` itself never makes any of these.
  */
 export class KuboAdmin extends Kubo {
@@ -32,7 +32,7 @@ export class KuboAdmin extends Kubo {
         return Object.keys(r.Keys ?? {});
     }
 
-    /** Deletes everything not pinned, so the node stops serving what the server refused or released. */
+    /** Deletes everything not pinned, so the node stops serving what the server refused. */
     async gc(): Promise<void> {
         await this.call('repo/gc', { silent: 'true' });
     }

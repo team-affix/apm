@@ -344,29 +344,38 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             expect((await new PinningService(url).list({ cid: [cid] })).map((s) => s.pin.cid)).toEqual([cid]);
         });
 
-        it('lists requests by CID and state, and releases what a removed request held', async () => {
+        it('lists requests by CID and state', async () => {
             const [author, serverNode] = await Promise.all([startNode(), startNode()]);
-            const { url, server } = await startServer({ kubo: serverNode });
+            const { url } = await startServer({ kubo: serverNode });
             const api = new PinningService(url);
             const base = await publish(project({ 'Kant/Ethics.ul': 'duty' }), author);
             const app = await publish(project({ 'App/Main.ul': 'm' }, [base]), author);
             const home = { name: 'home', url };
             await push(author, home, app);
             await push(author, home, base);
-            const [first] = await api.list({ cid: [app] });
-            const [second] = await api.list({ cid: [base] });
+            expect((await api.list({ cid: [app] })).map((s) => s.pin.cid)).toEqual([app]);
+            expect((await api.list()).map((s) => s.pin.cid).sort()).toEqual([app, base].sort());
             expect(await api.list({ status: ['failed'] })).toEqual([]);
+        });
 
-            // Removing the request for app releases app, but not base: another request still holds it.
-            await api.remove(first?.requestid as string);
-            const pins = await serverNode.pins();
-            expect(pins).not.toContain(app);
-            expect(pins).toContain(base);
-            await api.remove(second?.requestid as string);
-            expect(await serverNode.pins()).not.toContain(base);
-            // ...and deletes it, so the node stops serving it.
+        it('never removes what it keeps: removing a request is refused, with or without a token', async () => {
+            const [author, serverNode] = await Promise.all([startNode(), startNode()]);
+            const { url, server } = await startServer({ kubo: serverNode, tokens: ['secret'] });
+            const cid = await publish(project({ 'Kant/Ethics.ul': 'duty' }), author);
+            const home = { name: 'home', url };
+            await push(author, home, cid, 'secret');
+            const [request] = await new PinningService(url).list({ cid: [cid] });
+            for (const headers of [{}, { authorization: 'Bearer secret' }] as Record<string, string>[]) {
+                const res = await fetch(`${url}/pins/${request?.requestid}`, { method: 'DELETE', headers });
+                expect(res.status).toBe(405);
+            }
+            // What Kubo's own command does: it reports the refusal.
+            await expect(
+                ipfs(author, 'pin', 'remote', 'rm', '--service=home', `--cid=${cid}`, '--force'),
+            ).rejects.toThrow(/405|never removes/);
             await server.idle();
-            expect(await hasLocally(serverNode, base)).toBe(false);
+            expect(await serverNode.pins()).toContain(cid);
+            expect(await new PinningService(url).list({ cid: [cid] })).toHaveLength(1);
         });
 
         it("answers nothing of Kubo's RPC API, which stays private", async () => {

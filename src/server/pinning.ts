@@ -96,10 +96,6 @@ export class PinningService {
         return (await this.request<PinResults>('GET', `pins${q.size ? `?${q}` : ''}`)).results;
     }
 
-    async remove(requestid: string): Promise<void> {
-        await this.request<unknown>('DELETE', `pins/${encodeURIComponent(requestid)}`);
-    }
-
     /** Polls a request until it is pinned or failed, or `timeoutMs` passes (then returns its last state). */
     async wait(requestid: string, timeoutMs = 120_000, intervalMs = 500): Promise<PinStatus> {
         const end = Date.now() + timeoutMs;

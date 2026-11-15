@@ -15,6 +15,9 @@ import { Pin, PinState, PinStatus } from './pinning';
  * and everything it depends on over IPFS (hash-checked block by block), then the policy decides: keep it, or
  * report it failed and let it go. Content never travels over this API.
  *
+ * What it keeps, it keeps for good: removing a request (`DELETE /pins/:requestid`) is not supported, so a package
+ * others build on can't disappear from it.
+ *
  * The Kubo node's RPC API is the server's private admin interface; only this server talks to it. Peers reach
  * the node through its own peer-to-peer port.
  */
@@ -100,13 +103,13 @@ export async function createServer(opts: ServerOptions): Promise<DpmServer> {
         queue = queue.then(task).catch(() => undefined);
     };
     const enqueue = (r: Request) => run(() => processRequest(r));
-    /** Deletes whatever the node no longer pins, so it stops serving packages it refused or released. */
+    /** Deletes whatever the node doesn't pin, so it stops serving packages it refused. */
     const collect = () => run(() => kubo.gc());
     for (const r of requests) if (r.status === 'queued' || r.status === 'pinning') enqueue(r);
 
     /**
-     * Unpins whatever of `cids` no pinned request still holds. A server should have a Kubo node of its own: a pin
-     * can't say who else relies on it.
+     * Unpins whatever of `cids` no pinned request holds: used only to undo a half-finished pinning after an error
+     * from Kubo. A server should have a Kubo node of its own: a pin can't say who else relies on it.
      */
     async function release(cids: readonly string[]) {
         const keep = new Set(requests.filter((r) => r.status === 'pinned').flatMap((r) => r.tree ?? []));
@@ -218,16 +221,8 @@ export async function createServer(opts: ServerOptions): Promise<DpmServer> {
                 const r = requests.find((x) => x.requestid === parts[1]);
                 if (!r) return fail(res, 404, 'NOT_FOUND', `No pin request ${parts[1]}`);
                 if (req.method === 'GET') return send(res, 200, publicStatus(r));
-                if (req.method === 'DELETE') {
-                    if (!authorized(req)) return fail(res, 401, 'UNAUTHORIZED', 'A valid access token is required');
-                    requests.splice(requests.indexOf(r), 1);
-                    save();
-                    if (r.status === 'pinned') {
-                        await release(r.tree ?? []);
-                        collect();
-                    }
-                    return send(res, 202);
-                }
+                if (req.method === 'DELETE')
+                    return fail(res, 405, 'METHOD_NOT_ALLOWED', 'This server never removes what it keeps');
                 return fail(res, 404, 'NOT_FOUND');
             } catch (e) {
                 return fail(res, 500, 'INTERNAL_SERVER_ERROR', (e as Error).message);

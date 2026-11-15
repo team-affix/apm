@@ -218,10 +218,13 @@ as reader dpm -C "$X" add "$LOGIC2" "$EVE"
 expect_ok "dpm install installs both" as reader dpm -C "$X" install
 expect_fail "unilog check reports the ambiguous module" "ambiguous" bash -c "cd '$X' && unilog check"
 
-story "Withdrawing a request: the server unpins and deletes it"
-expect_ok "Eve withdraws: ipfs pin remote rm" as eve ipfs pin remote rm --service=home --cid="$EVE" --force
-sleep 2
-expect_fail "the server's Kubo no longer has it" "not found|could not find" as server ipfs files stat --offline "/ipfs/$EVE"
+story "Removing is refused: what the server keeps, it keeps for good"
+expect_fail "Eve tries to remove her package: ipfs pin remote rm" "405|never removes" \
+    as eve ipfs pin remote rm --service=home --cid="$EVE" --force
+expect_ok "the server's Kubo still has it, pinned" as server ipfs pin ls --type=recursive "$EVE"
+RID=$(curl -s "http://127.0.0.1:$SRV/pins?cid=$EVE" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).results[0].requestid))')
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE -H 'Authorization: Bearer letmein' "http://127.0.0.1:$SRV/pins/$RID")
+[ "$CODE" = 405 ] && pass "removing straight through the server's API, with a valid token, is refused too (405)" || fail "DELETE returned $CODE"
 
 story "Errors users can hit"
 expect_fail "dpm add with something that isn't a CID" "Not a CID" as reader dpm -C "$R" add Kant

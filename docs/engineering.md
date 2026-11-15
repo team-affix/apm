@@ -21,8 +21,9 @@ anyone who asks. So:
     pinned.
 - **Fetching is not keeping.** Fetched data is cached like anything a Kubo node downloads, until garbage
   collection. That's Kubo's normal behaviour; DPM doesn't add work to fight it.
-- **Unpinning is for decisions, not for recovering from a premature pin.** It happens when someone withdraws a
-  request, or to undo a half-finished operation after an unexpected error from Kubo itself.
+- **Unpinning is not for recovering from a premature pin.** A server never removes what it accepted (it doesn't
+  support removing requests at all); it unpins only to undo a half-finished operation after an unexpected error
+  from Kubo itself.
 
 More generally: prefer the order of operations that needs no cleanup. Work with the tools' natural behaviour
 (here, Kubo's) rather than doing something and then undoing it.
