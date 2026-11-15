@@ -4,7 +4,9 @@ import fs from 'fs';
 import http from 'http';
 import os from 'os';
 import path from 'path';
-import { fetchTree, Graph, install, isCid, Kubo, Pin, PinState, PinStatus } from '../core';
+import { fetchTree, Graph, install, isCid, Kubo } from '../core';
+import { KuboAdmin } from './kubo-admin';
+import { Pin, PinState, PinStatus } from './pinning';
 
 /**
  * A DPM server: the IPFS Pinning Service API in front of a Kubo node, plus a policy deciding what to keep.
@@ -21,7 +23,7 @@ import { fetchTree, Graph, install, isCid, Kubo, Pin, PinState, PinStatus } from
 export type Policy = (pkg: { cid: string; graph: Graph; kubo: Kubo }) => Promise<string | undefined>;
 
 export interface ServerOptions {
-    kubo: Kubo;
+    kubo: KuboAdmin;
     /** Where pin requests are stored. */
     dataDir: string;
     /** If set, adding or removing pins needs `Authorization: Bearer <one of these>`. Reading is open. */

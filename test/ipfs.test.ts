@@ -5,9 +5,9 @@ import os from 'os';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { pack, tree } from '../src/client';
-import { install, Kubo, PinningService, PinStatus, readGraph, writeManifest } from '../src/core';
-import { commandPolicy } from '../src/server';
-import { IPFS_BIN, readTree, startNode, startServer, tmpDir, writeTree } from './helpers';
+import { install, Kubo, readGraph, writeManifest } from '../src/core';
+import { commandPolicy, KuboAdmin, PinningService, PinStatus } from '../src/server';
+import { hasLocally, IPFS_BIN, readTree, startNode, startServer, tmpDir, writeTree } from './helpers';
 
 /** A package folder with the given files and dependencies. */
 function project(files: Record<string, string>, deps: string[] = []): string {
@@ -203,7 +203,7 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             await pushTree(author, home, alice);
             await install(project({}, [alice]), reader);
             // Installed, and cached in the node, but not pinned.
-            expect(await reader.hasLocally(alice)).toBe(true);
+            expect(await hasLocally(reader, alice)).toBe(true);
             expect(await reader.pins()).not.toContain(alice);
             expect(await reader.pins()).not.toContain(base);
             // ...the user runs their checks here, then pins Alice's package alone...
@@ -271,8 +271,9 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             expect(readTree(path.join(dir, 'deps'))).toMatchObject({ [`${base}/Kant/Ethics.ul`]: 'duty' });
 
             // The same token can't change anything, and no token gets nothing.
-            await expect(reader.pin(app)).rejects.toThrow(/Access Denied/);
-            await expect(reader.gc()).rejects.toThrow(/Access Denied/);
+            const readerAsAdmin = new KuboAdmin(node.api, '20s', 'bearer:read-only');
+            await expect(readerAsAdmin.pin(app)).rejects.toThrow(/Access Denied/);
+            await expect(readerAsAdmin.gc()).rejects.toThrow(/Access Denied/);
             await expect(new Kubo(node.api, '20s').version()).rejects.toThrow(/Access Denied/);
         });
     });
@@ -302,7 +303,7 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             const cid = await publish(project({ 'Kant/Ethics.ul': 'duty' }), author);
             await expect(push(author, { name: 'home', url }, cid)).rejects.toThrow(REFUSED);
             await server.idle();
-            expect(await serverNode.hasLocally(cid)).toBe(false);
+            expect(await hasLocally(serverNode, cid)).toBe(false);
         });
 
         it('runs the check with dependencies installed, so it can look at the whole tree', async () => {
@@ -365,7 +366,7 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             expect(await serverNode.pins()).not.toContain(base);
             // ...and deletes it, so the node stops serving it.
             await server.idle();
-            expect(await serverNode.hasLocally(base)).toBe(false);
+            expect(await hasLocally(serverNode, base)).toBe(false);
         });
 
         it("answers nothing of Kubo's RPC API, which stays private", async () => {

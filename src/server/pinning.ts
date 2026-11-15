@@ -1,4 +1,14 @@
-import { RemoteError } from './errors';
+import { DpmError } from '../core';
+
+/** A pinning service returned an unexpected response. */
+export class RemoteError extends DpmError {
+    constructor(
+        message: string,
+        public readonly status?: number,
+    ) {
+        super(message);
+    }
+}
 
 /**
  * The IPFS Pinning Service API (https://ipfs.github.io/pinning-services-api-spec/), which DPM servers speak.

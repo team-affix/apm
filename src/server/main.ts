@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import os from 'os';
 import path from 'path';
-import { Kubo } from '../core';
 import { VERSION } from '../version';
+import { KuboAdmin } from './kubo-admin';
 import { commandPolicy, createServer } from './server';
 
 /**
@@ -26,7 +26,7 @@ const list = (v?: string) =>
 async function main() {
     const port = Number(process.env.PORT ?? 3000);
     const host = process.env.HOST;
-    const kubo = new Kubo(process.env.DPM_KUBO_API);
+    const kubo = new KuboAdmin(process.env.DPM_KUBO_API);
     const ipfs = await kubo.version();
     const tokens = list(process.env.DPM_TOKENS);
     const announce = list(process.env.DPM_ANNOUNCE);

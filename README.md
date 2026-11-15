@@ -51,8 +51,8 @@ See [how DPM uses IPFS](docs/ipfs.md), the [protocol spec](docs/protocol.md), th
 ## Library
 
 ```ts
-import { Kubo, install, PinningService } from '@team-affix/dpm';
-import { createServer, commandPolicy } from '@team-affix/dpm/server';
+import { Kubo, install } from '@team-affix/dpm';
+import { createServer, commandPolicy, KuboAdmin } from '@team-affix/dpm/server';
 import { pack, tree } from '@team-affix/dpm/client';
 ```
 
@@ -81,8 +81,8 @@ npm run bundle    # single-file dpm and dpm-server in release/
 Layout:
 
 ```
-src/core     dpm.json, the Kubo RPC client, install, the Pinning Service API client
-src/server   the Pinning Service API server with policies (dpm-server)
+src/core     dpm.json, the read-only Kubo client, install
+src/server   the Pinning Service API server with policies (dpm-server), its Kubo admin client, and the Pinning Service API client
 src/client   pack / tree / install, client config, and the CLI (dpm)
 test/        unit tests, and end-to-end tests with real Kubo nodes and servers
 docs/        protocol spec, architecture, CLI and philosophy

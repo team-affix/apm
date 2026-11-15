@@ -30,13 +30,20 @@ DPM has no package names, so it has no name conflicts, no overrides and no resol
 
 | Part | What it does |
 |---|---|
-| `Kubo` | A client for a Kubo node's RPC API: `addFolder` (with the fixed import settings), `cat`, `fetch`, `pin`, `unpin`, `pins`, `connect`, `exportTo`, `gc`, `id`, `version` |
+| `Kubo` | A **read-only** client for a Kubo node's HTTP API, on this machine or another: `cat`, `fetch` (Kubo's `refs`), `exportTo` (Kubo's `get`) and `version`. Nothing else. |
 | `readPackageFolder` | A project folder's files, leaving out `deps/` and hidden entries |
 | `manifest`, `parseManifest`, `readManifest`, `writeManifest`, `isCid` | `dpm.json` |
 | `fetchTree`, `install`, `readGraph` | Fetch a tree by CID (each package once), and install it flat |
-| `PinningService` | A client for the Pinning Service API: `add`, `get`, `list`, `remove`, `wait` |
 
-`@team-affix/dpm/server` has `createServer` (the Pinning Service API in front of a Kubo node, with a `Policy` hook) and `commandPolicy`. `@team-affix/dpm/client` has `pack`, `tree` and `ClientConfig`. The server pins and unpins in its own Kubo node; the client never does.
+`@team-affix/dpm/client` has `pack`, `tree` and `ClientConfig`.
+
+`@team-affix/dpm/server` has everything only a server needs:
+- `createServer`: the Pinning Service API in front of a Kubo node, with a `Policy` hook;
+- `commandPolicy`;
+- `KuboAdmin`: the `Kubo` client plus the admin requests a server makes on its own node (`pin`, `unpin`, `pins`, `gc`, `connect`, `id`);
+- `PinningService`: a client for the Pinning Service API, and its types.
+
+The client never pins or unpins: the admin requests aren't even in the code it uses.
 
 ## Server policies
 

@@ -4,8 +4,7 @@ import net from 'net';
 import os from 'os';
 import path from 'path';
 import { afterAll, afterEach } from 'vitest';
-import { Kubo } from '../src/core';
-import { createServer, DpmServer, ServerOptions } from '../src/server';
+import { createServer, DpmServer, KuboAdmin, ServerOptions } from '../src/server';
 
 const created: string[] = [];
 
@@ -76,7 +75,7 @@ export async function startNode(
         /** The secret the returned client uses. */
         auth?: string;
     } = {},
-): Promise<Kubo> {
+): Promise<KuboAdmin> {
     if (!IPFS_BIN) throw new Error('no ipfs binary');
     const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'dpm-kubo-'));
     const env = { ...process.env, IPFS_PATH: repo };
@@ -92,7 +91,7 @@ export async function startNode(
     for (let i = 0; i < 100 && !fs.existsSync(apiFile); i++) await new Promise((r) => setTimeout(r, 100));
     const m = /\/ip4\/([^/]+)\/tcp\/(\d+)/.exec(fs.readFileSync(apiFile, 'utf8'));
     if (!m) throw new Error('Kubo did not report its API address');
-    const kubo = new Kubo(`http://${m[1]}:${m[2]}`, '20s', opts.auth);
+    const kubo = new KuboAdmin(`http://${m[1]}:${m[2]}`, '20s', opts.auth);
     for (let i = 0; i < 100; i++) {
         try {
             await kubo.version();
@@ -112,4 +111,12 @@ export async function startServer(opts: Omit<ServerOptions, 'dataDir'> & { dataD
     servers.push(server);
     const { port } = server.http.address() as net.AddressInfo;
     return { server, url: `http://127.0.0.1:${port}` };
+}
+
+/** Whether a node holds a path, without fetching anything from the network. */
+export async function hasLocally(kubo: KuboAdmin, ipfsPath: string): Promise<boolean> {
+    const url = new URL('/api/v0/files/stat', kubo.api);
+    url.searchParams.set('arg', `/ipfs/${ipfsPath}`);
+    url.searchParams.set('offline', 'true');
+    return (await fetch(url, { method: 'POST' })).ok;
 }
