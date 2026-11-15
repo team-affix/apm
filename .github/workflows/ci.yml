@@ -14,10 +14,32 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           cache: npm
+      # The end-to-end tests run real IPFS nodes (Kubo). In CI they must run, not be skipped.
+      # dist.ipfs.tech stopped answering after Shipyard's IPFS infrastructure shut down, so: Kubo's GitHub
+      # release, or else Kubo built from source through Go's module proxy.
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: false
+      - name: Install Kubo
+        run: |
+          if curl -fsSL --max-time 120 https://github.com/ipfs/kubo/releases/download/v0.43.1/kubo_v0.43.1_linux-amd64.tar.gz -o kubo.tar.gz \
+              && tar xzf kubo.tar.gz; then
+            sudo mv kubo/ipfs /usr/local/bin/ipfs
+          else
+            echo "No prebuilt Kubo available: building it from source"
+            dir=$(GOTOOLCHAIN=auto go mod download -json github.com/ipfs/kubo@v0.43.1 | node -e "let b = ''; process.stdin.on('data', (d) => (b += d)).on('end', () => process.stdout.write(JSON.parse(b).Dir))")
+            cp -r "$dir" "$RUNNER_TEMP/kubo-src" && chmod -R u+w "$RUNNER_TEMP/kubo-src"
+            (cd "$RUNNER_TEMP/kubo-src" && GOTOOLCHAIN=auto go build -o "$RUNNER_TEMP/ipfs" ./cmd/ipfs)
+            sudo mv "$RUNNER_TEMP/ipfs" /usr/local/bin/ipfs
+          fi
+          ipfs version
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm run lint
       - run: npm test
+        env:
+          DPM_REQUIRE_IPFS: '1'
       - run: npm run build
 
   # Publishes a GitHub Release with dpm and dpm-server, after the tests pass. Runs when:

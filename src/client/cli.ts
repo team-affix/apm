@@ -1,18 +1,32 @@
 #!/usr/bin/env node
+import fs from 'fs';
+import path from 'path';
 import { Command } from 'commander';
-import { CachingSource, DpmError, formatTree, MissingDependencyError, parseId, resolve } from '../core';
-import { ClientHome } from './config';
-import { Project } from './project';
-import { pull, push } from './transfer';
+import { assertCid, DEPS, DpmError, install, readGraph, readManifest, writeManifest } from '../core';
 import { VERSION } from '../version';
+import { ClientConfig } from './config';
+import { pack, tree } from './client';
 
-const home = ClientHome.dpm();
-const localRegistry = () => home.registry();
-
+/**
+ * `dpm`: the DPM client. Packages are folders with a `dpm.json`, identified by their IPFS CID; `dpm.json` lists
+ * the CIDs a package depends on.
+ *
+ * `dpm` does package management. It talks to one Kubo node, on this machine or another, and only reads from it
+ * (see docs/ipfs.md). Kubo does everything else: adding, pinning, and every exchange with other machines, servers
+ * included:
+ *
+ *   ipfs add -r -Q "$(dpm pack)"                    add a package to your node
+ *   dpm tree <cid> | ipfs pin add                   pin a package and its whole tree
+ *   ipfs pin remote add --service=<server> <cid>    push a package to a DPM server
+ *   ipfs swarm peering add <server address>         stay connected to a server, to fetch from it
+ */
 const program = new Command()
     .name('dpm')
     .version(VERSION)
-    .description('Decentralized Package Manager: content-addressed packages across many registries');
+    .description('Decentralized Package Manager: folders identified by their IPFS CID, depending on each other by CID')
+    .option('-C, --dir <dir>', 'the project directory', '.');
+
+const dir = () => path.resolve((program.opts() as { dir: string }).dir);
 
 /** Runs a command action, printing DPM errors without a stack trace. */
 function run<A extends unknown[]>(action: (...args: A) => Promise<void> | void) {
@@ -27,196 +41,112 @@ function run<A extends unknown[]>(action: (...args: A) => Promise<void> | void) 
     };
 }
 
-/** Remotes used as dependency sources: the named ones, or all configured remotes. */
-function sourceRemotes(names: string[] | undefined, offline = false) {
-    if (offline) return [];
-    const remotes = home.remotes();
-    return names && names.length > 0 ? names.map((n) => remotes.get(n)) : remotes.all();
-}
-
-// ---- projects ----
-
 program
     .command('init')
-    .description('Create dpm.json and a source directory in the current directory')
-    .argument('<name>', 'package name')
+    .description('Make the project directory a DPM package: create its dpm.json')
     .action(
-        run((name: string) => {
-            Project.init(process.cwd(), name);
-            console.log(`Initialized ${name}. Put content in ./${name}/`);
+        run(() => {
+            if (fs.existsSync(path.join(dir(), 'dpm.json'))) throw new DpmError('dpm.json already exists');
+            writeManifest(dir(), { deps: [] });
+            console.log(`created ${path.join(dir(), 'dpm.json')}`);
         }),
     );
 
 program
     .command('add')
-    .description('Add direct dependencies (replacing any existing dependency with the same name)')
-    .argument('<ids...>', 'package IDs')
+    .description("Add direct dependencies to the project's dpm.json, by CID")
+    .argument('<cid...>')
     .action(
-        run((ids: string[]) => {
-            const project = Project.load(process.cwd());
-            for (const id of ids) {
-                const replaced = project.add(id);
-                console.log(replaced ? `Replaced ${replaced} with ${id}` : `Added ${id}`);
-            }
+        run((cids: string[]) => {
+            const m = readManifest(dir());
+            writeManifest(dir(), { deps: [...m.deps, ...cids.map(assertCid)] });
         }),
     );
 
 program
     .command('remove')
-    .description('Remove direct dependencies')
-    .argument('<ids-or-names...>', 'package IDs or names')
-    .action(run((items: string[]) => items.forEach((i) => Project.load(process.cwd()).remove(i))));
+    .description("Remove direct dependencies from the project's dpm.json")
+    .argument('<cid...>')
+    .action(
+        run((cids: string[]) => {
+            const m = readManifest(dir());
+            const missing = cids.filter((c) => !m.deps.includes(c));
+            if (missing.length) throw new DpmError(`Not a dependency: ${missing.join(', ')}`);
+            writeManifest(dir(), { deps: m.deps.filter((d) => !cids.includes(d)) });
+        }),
+    );
 
 program
     .command('install')
-    .description('Resolve dependencies and write them to ./deps/<name>/')
-    .option('-r, --remote <names...>', 'remotes to fetch missing packages from (default: all)')
-    .option('--offline', 'use only the local registry')
+    .description(
+        'Fetch every dependency, by CID, into deps/<cid>/, and write deps/graph.json. Nothing is pinned: fetched data is only cached.',
+    )
+    .option('--timeout <duration>', 'how long fetching one package may take, e.g. 60s', '120s')
     .action(
-        run(async (opts: { remote?: string[]; offline?: boolean }) => {
-            const project = Project.load(process.cwd());
-            const resolution = await project.install(localRegistry(), sourceRemotes(opts.remote, opts.offline));
-            console.log(formatTree(resolution));
-            console.log(`Installed ${resolution.packages.length} package(s) into ./deps`);
+        run(async (opts: { timeout: string }) => {
+            const graph = await install(dir(), ClientConfig.load().kubo(opts.timeout));
+            const n = Object.keys(graph.packages).length;
+            console.log(`installed ${n} package${n === 1 ? '' : 's'} into ${path.join(dir(), DEPS)}`);
         }),
     );
 
 program
     .command('pack')
-    .description('Build a package from the project and store it in the local registry')
-    .option('-r, --remote <names...>', 'remotes to look up dependencies in (default: all)')
-    .option('--offline', 'use only the local registry')
-    .action(
-        run(async (opts: { remote?: string[]; offline?: boolean }) => {
-            const pkg = await Project.load(process.cwd()).pack(
-                localRegistry(),
-                sourceRemotes(opts.remote, opts.offline),
-            );
-            console.log(pkg.id);
-        }),
-    );
-
-// ---- packages ----
-
-program
-    .command('ls')
-    .description('List packages in the local registry or a remote (or check which of the given IDs are present)')
-    .argument('[ids...]', 'IDs to check')
-    .option('-r, --remote <name>', 'query a remote instead of the local registry')
-    .action(
-        run(async (ids: string[], opts: { remote?: string }) => {
-            const source = opts.remote ? home.remotes().get(opts.remote) : localRegistry();
-            const found = ids.length > 0 ? [...(await source.has(ids))] : await source.list();
-            if (found.length > 0) console.log(found.join('\n'));
-        }),
-    );
-
-program
-    .command('info')
-    .description('Show a package from the local registry')
-    .argument('<id>')
-    .action(
-        run(async (id: string) => {
-            parseId(id);
-            const pkg = await localRegistry().get(id);
-            if (!pkg) throw new MissingDependencyError([{ id, requiredBy: '(info)' }]);
-            console.log(`id:      ${pkg.id}`);
-            console.log(`name:    ${pkg.name}`);
-            console.log(`deps:    ${pkg.deps.length === 0 ? '(none)' : pkg.deps.join('\n         ')}`);
-            console.log(`payload: ${pkg.payload.length} bytes`);
-        }),
-    );
+    .description(
+        'Write the project\'s package (everything except deps/ and hidden files) to a new folder, and print the folder. Without -o, it is a temporary folder named by a random GUID. Add it with: ipfs add -r -Q "$(dpm pack)"',
+    )
+    .option('-o, --out <folder>', 'write the package to this new folder instead')
+    .action(run((opts: { out?: string }) => console.log(pack(dir(), opts.out))));
 
 program
     .command('tree')
-    .description("Show a package's resolved dependency tree")
-    .argument('<id>')
-    .option('-r, --remote <names...>', 'remotes to look up dependencies in (default: all)')
-    .option('--offline', 'use only the local registry')
+    .description(
+        'Print a package and every package it depends on, recursively, one CID per line. To pin them all: dpm tree <cid> | ipfs pin add',
+    )
+    .argument('<cid>')
+    .option('--timeout <duration>', 'how long fetching one package may take, e.g. 60s', '120s')
     .action(
-        run(async (id: string, opts: { remote?: string[]; offline?: boolean }) => {
-            parseId(id);
-            const registry = localRegistry();
-            const pkg = await registry.get(id);
-            if (!pkg) throw new MissingDependencyError([{ id, requiredBy: '(tree)' }]);
-            const sources = [registry, new CachingSource(sourceRemotes(opts.remote, opts.offline))];
-            console.log(formatTree(await resolve(pkg, sources)));
+        run(async (cid: string, opts: { timeout: string }) => {
+            for (const c of await tree(assertCid(cid), ClientConfig.load().kubo(opts.timeout))) console.log(c);
         }),
     );
 
 program
-    .command('pull')
-    .description('Fetch a package and its dependency tree into the local registry')
-    .argument('<id>')
-    .option('-r, --remote <names...>', 'remotes to pull from, in order (default: all)')
+    .command('ls')
+    .description("List the project's installed packages, with what each contains at its top level")
     .action(
-        run(async (id: string, opts: { remote?: string[] }) => {
-            const stored = await pull(localRegistry(), id, sourceRemotes(opts.remote));
-            stored.forEach((p) => console.log(`Pulled ${p.id}`));
-            if (stored.length === 0) console.log('Already up to date');
+        run(() => {
+            const graph = readGraph(dir());
+            if (!graph) throw new DpmError("Nothing installed: run 'dpm install'");
+            for (const [cid, { deps }] of Object.entries(graph.packages)) {
+                const top = fs
+                    .readdirSync(path.join(dir(), DEPS, cid))
+                    .filter((n) => n !== 'dpm.json')
+                    .join(', ');
+                const direct = graph.root.includes(cid) ? '*' : ' ';
+                console.log(`${direct} ${cid}  ${top || '(empty)'}${deps.length ? `  (${deps.length} deps)` : ''}`);
+            }
         }),
     );
 
 program
-    .command('push')
-    .description('Push a package (and whatever of its tree the remote lacks) to a remote')
-    .argument('<id>')
-    .argument('<remote>')
-    .option('-p, --provider <names...>', 'remotes the server may fetch missing dependencies from (default: all others)')
+    .command('node')
+    .description("Show which Kubo dpm reads through, or set it: the URL of Kubo's HTTP API, on this machine or another")
+    .option('--set <url>', "set the URL of Kubo's HTTP API (default http://127.0.0.1:5001)")
+    .option(
+        '--auth <secret>',
+        "with --set: the node's secret, if it requires one: bearer:<token> or basic:<user>:<password>",
+    )
     .action(
-        run(async (id: string, remoteName: string, opts: { provider?: string[] }) => {
-            const remotes = home.remotes();
-            const providers = opts.provider ? opts.provider.map((n) => remotes.get(n)) : remotes.all([remoteName]);
-            const result = await push(localRegistry(), id, remotes.get(remoteName), providers);
-            result.stored.forEach((s) => console.log(`Pushed ${s}`));
-            if (result.stored.length === 0) console.log('Remote already has everything');
-        }),
-    );
-
-// ---- remotes ----
-
-const remote = program.command('remote').description('Manage remote registries (order = lookup priority)');
-
-remote
-    .command('add')
-    .argument('<name>')
-    .argument('<url>')
-    .action(
-        run((name: string, url: string) => {
-            const remotes = home.remotes();
-            remotes.add(name, url);
-            remotes.save();
-        }),
-    );
-
-remote
-    .command('remove')
-    .argument('<name>')
-    .action(
-        run((name: string) => {
-            const remotes = home.remotes();
-            remotes.remove(name);
-            remotes.save();
-        }),
-    );
-
-remote.command('ls').action(
-    run(() =>
-        home
-            .remotes()
-            .list()
-            .forEach((r) => console.log(`${r.name}\t${r.url}`)),
-    ),
-);
-
-remote
-    .command('check')
-    .description('Check that a remote is reachable')
-    .argument('<name>')
-    .action(
-        run(async (name: string) => {
-            await home.remotes().get(name).health();
-            console.log('ok');
+        run(async (opts: { set?: string; auth?: string }) => {
+            const config = ClientConfig.load();
+            if (opts.auth && !opts.set) throw new DpmError('--auth goes with --set <url>');
+            if (opts.set) {
+                config.setKubo(opts.set, opts.auth);
+                config.save();
+            }
+            const kubo = config.kubo();
+            console.log(`Kubo ${await kubo.version()} at ${kubo.api}`);
         }),
     );
 

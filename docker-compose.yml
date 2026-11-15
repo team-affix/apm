@@ -1,0 +1,27 @@
+# A DPM server with its own Kubo node. Exposed: the server's API (3000) and Kubo's peer-to-peer port (4001).
+# Kubo's RPC API (5001) stays on the internal network, where only dpm-server can reach it.
+services:
+  kubo:
+    image: ipfs/kubo:v0.43.1
+    environment:
+      IPFS_PROFILE: server,unixfs-v1-2025
+    volumes:
+      - ipfs:/data/ipfs
+    ports:
+      - '4001:4001'
+      - '4001:4001/udp'
+  dpm-server:
+    build: .
+    environment:
+      DPM_KUBO_API: http://kubo:5001
+      # DPM_TOKENS: change-me
+      # DPM_CHECK: unilog check   (needs unilog installed in the image)
+    volumes:
+      - dpm:/data
+    ports:
+      - '3000:3000'
+    depends_on:
+      - kubo
+volumes:
+  ipfs:
+  dpm:

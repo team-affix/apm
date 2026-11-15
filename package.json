@@ -1,7 +1,7 @@
 {
     "name": "@team-affix/dpm",
-    "version": "0.1.0",
-    "description": "Decentralized Package Manager: content-addressed packages stored across many independent registries.",
+    "version": "0.2.0",
+    "description": "Decentralized Package Manager: folders identified by their IPFS CID, depending on each other by CID.",
     "license": "MIT",
     "author": "Team Affix",
     "main": "dist/core/index.js",
