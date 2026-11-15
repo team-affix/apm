@@ -1,10 +1,9 @@
 import { ChildProcess, execFileSync, spawn } from 'child_process';
 import fs from 'fs';
-import net from 'net';
 import os from 'os';
 import path from 'path';
 import { afterAll, afterEach } from 'vitest';
-import { createServer, DpmServer, KuboAdmin, ServerOptions } from '../src/server';
+import { Kubo } from '../src/core';
 
 const created: string[] = [];
 
@@ -44,6 +43,34 @@ export function readTree(dir: string): Record<string, string> {
 
 // --- Real IPFS nodes (Kubo), for end-to-end tests ---
 
+/**
+ * A test's view of a node: the read-only `Kubo` client dpm uses, plus what tests need to set nodes up and look at
+ * them (dpm itself never does any of this; users do it with the ipfs command).
+ */
+export class TestNode extends Kubo {
+    async id(): Promise<{ id: string; addresses: string[] }> {
+        const r = await this.json<{ ID: string; Addresses: string[] | null }>('id');
+        return { id: r.ID, addresses: r.Addresses ?? [] };
+    }
+
+    async pins(): Promise<string[]> {
+        const r = await this.json<{ Keys?: Record<string, unknown> }>('pin/ls', { type: 'recursive' });
+        return Object.keys(r.Keys ?? {});
+    }
+
+    async pin(cid: string): Promise<void> {
+        await this.call('pin/add', { arg: cid, recursive: 'true' });
+    }
+
+    async gc(): Promise<void> {
+        await this.call('repo/gc', { silent: 'true' });
+    }
+
+    async connect(multiaddr: string): Promise<void> {
+        await this.call('swarm/connect', { arg: multiaddr });
+    }
+}
+
 /** The Kubo binary: $IPFS_BIN, or `ipfs` on the PATH. Tests that need it are skipped without it. */
 export const IPFS_BIN = (() => {
     const bin = process.env.IPFS_BIN ?? 'ipfs';
@@ -58,9 +85,7 @@ export const IPFS_BIN = (() => {
 })();
 
 const daemons: ChildProcess[] = [];
-const servers: DpmServer[] = [];
 afterAll(async () => {
-    for (const s of servers.splice(0)) await new Promise((r) => s.http.close(r));
     for (const d of daemons.splice(0)) d.kill('SIGKILL');
 });
 
@@ -75,7 +100,7 @@ export async function startNode(
         /** The secret the returned client uses. */
         auth?: string;
     } = {},
-): Promise<KuboAdmin> {
+): Promise<TestNode> {
     if (!IPFS_BIN) throw new Error('no ipfs binary');
     const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'dpm-kubo-'));
     const env = { ...process.env, IPFS_PATH: repo };
@@ -91,7 +116,7 @@ export async function startNode(
     for (let i = 0; i < 100 && !fs.existsSync(apiFile); i++) await new Promise((r) => setTimeout(r, 100));
     const m = /\/ip4\/([^/]+)\/tcp\/(\d+)/.exec(fs.readFileSync(apiFile, 'utf8'));
     if (!m) throw new Error('Kubo did not report its API address');
-    const kubo = new KuboAdmin(`http://${m[1]}:${m[2]}`, '20s', opts.auth);
+    const kubo = new TestNode(`http://${m[1]}:${m[2]}`, '20s', opts.auth);
     for (let i = 0; i < 100; i++) {
         try {
             await kubo.version();
@@ -103,18 +128,8 @@ export async function startNode(
     throw new Error('Kubo did not start');
 }
 
-/** Starts a DPM server on a free port, in front of `kubo`. */
-export async function startServer(opts: Omit<ServerOptions, 'dataDir'> & { dataDir?: string }) {
-    const dataDir = opts.dataDir ?? fs.mkdtempSync(path.join(os.tmpdir(), 'dpm-server-'));
-    const server: DpmServer = await createServer({ ...opts, dataDir });
-    await new Promise<void>((r) => server.http.listen(0, '127.0.0.1', () => r()));
-    servers.push(server);
-    const { port } = server.http.address() as net.AddressInfo;
-    return { server, url: `http://127.0.0.1:${port}` };
-}
-
 /** Whether a node holds a path, without fetching anything from the network. */
-export async function hasLocally(kubo: KuboAdmin, ipfsPath: string): Promise<boolean> {
+export async function hasLocally(kubo: Kubo, ipfsPath: string): Promise<boolean> {
     const url = new URL('/api/v0/files/stat', kubo.api);
     url.searchParams.set('arg', `/ipfs/${ipfsPath}`);
     url.searchParams.set('offline', 'true');

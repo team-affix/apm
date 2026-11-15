@@ -17,7 +17,7 @@ import { pack, tree } from './client';
  *
  *   ipfs add -r -Q "$(dpm pack)"                    add a package to your node
  *   dpm tree <cid> | ipfs pin add                   pin a package and its whole tree
- *   ipfs pin remote add --service=<server> <cid>    push a package to a DPM server
+ *   ipfs pin remote add --service=<server> <cid>    push a package to a server (any IPFS pinning service)
  *   ipfs swarm peering add <server address>         stay connected to a server, to fetch from it
  */
 const program = new Command()

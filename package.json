@@ -1,6 +1,6 @@
 {
     "name": "@team-affix/dpm",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "description": "Decentralized Package Manager: folders identified by their IPFS CID, depending on each other by CID.",
     "license": "MIT",
     "author": "Team Affix",
@@ -8,12 +8,10 @@
     "types": "dist/core/index.d.ts",
     "exports": {
         ".": "./dist/core/index.js",
-        "./server": "./dist/server/index.js",
         "./client": "./dist/client/index.js"
     },
     "bin": {
-        "dpm": "dist/client/cli.js",
-        "dpm-server": "dist/server/main.js"
+        "dpm": "dist/client/cli.js"
     },
     "files": [
         "dist"
@@ -26,11 +24,10 @@
         "typecheck": "tsc --noEmit",
         "test": "vitest run",
         "test:watch": "vitest",
-        "test:e2e": "npm run build && bash test/e2e/user-stories.sh",
         "lint": "eslint src test",
         "format": "prettier --write src test",
         "prepublishOnly": "npm run build && npm run lint && npm test",
-        "bundle": "esbuild src/client/cli.ts --bundle --platform=node --target=node20 --outfile=release/dpm.cjs && esbuild src/server/main.ts --bundle --platform=node --target=node20 --outfile=release/dpm-server.cjs"
+        "bundle": "esbuild src/client/cli.ts --bundle --platform=node --target=node20 --outfile=release/dpm.cjs"
     },
     "dependencies": {
         "commander": "^14.0.0",

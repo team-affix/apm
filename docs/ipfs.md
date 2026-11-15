@@ -26,7 +26,7 @@ DPM talks to Kubo over Kubo's HTTP API (Kubo calls it its "RPC API", but it's pl
 | `/api/v0/get` | download a package's folder, as a tar stream that DPM unpacks into `deps/<cid>/` |
 | `/api/v0/version` | show which Kubo `dpm node` is talking to |
 
-That's everything `dpm install`, `dpm tree` and `dpm node` need. The `dpm` code contains no other request: the admin ones (pinning, garbage collection and so on) exist only in `dpm-server`.
+That's everything `dpm install`, `dpm tree` and `dpm node` need. The `dpm` code contains no other request.
 
 ## Everything else is the `ipfs` command
 
@@ -37,7 +37,7 @@ The dividing line:
 
 `dpm pack` writes the package to a folder on disk and doesn't touch IPFS at all. You add that folder with `ipfs add -r`.
 
-A DPM server is a separate thing: a standard IPFS pinning service with its own Kubo node, which only Kubo talks to (`ipfs pin remote add`). See [protocol.md](protocol.md).
+Servers are separate: any IPFS pinning service (for example [unilog-server](https://github.com/team-affix/unilog-server)), which only Kubo talks to (`ipfs pin remote add`). See [protocol.md](protocol.md).
 
 ## Optional: a Kubo on another machine
 
