@@ -16,7 +16,7 @@ anyone who asks. So:
     undo, and no chance that a failed undo leaves invalid content hosted.
   - `dpm` never pins, or changes what a node keeps in any other way: it only reads from IPFS. `dpm install`
     fetches. The user checks what was installed (e.g. `unilog check`), then decides to keep it with
-    `ipfs pin add <cid>`, or its whole tree with `dpm tree <cid> | ipfs pin add`. `dpm tree` fetches
+    `ipfs pin add <cid>`, or its whole tree with `dpm package tree <cid> --flat | ipfs pin add`. That fetches
     the whole tree before printing anything, so a tree that can't be completed prints nothing, and nothing is
     pinned.
 - **Fetching is not keeping.** Fetched data is cached like anything a Kubo node downloads, until garbage

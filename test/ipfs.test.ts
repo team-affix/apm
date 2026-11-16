@@ -24,7 +24,7 @@ async function ipfs(node: Kubo, ...args: string[]): Promise<string> {
     return ipfsWithInput(node, '', ...args);
 }
 
-/** The same, with `input` piped to its stdin: e.g. `dpm tree <cid> | ipfs pin add`. */
+/** The same, with `input` piped to its stdin: e.g. `dpm package tree <cid> --flat | ipfs pin add`. */
 async function ipfsWithInput(node: Kubo, input: string, ...args: string[]): Promise<string> {
     const port = new URL(node.api).port;
     const run = promisify(execFile)(IPFS_BIN as string, [`--api=/ip4/127.0.0.1/tcp/${port}`, ...args]);
@@ -167,7 +167,7 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             await ipfs(reader, 'pin', 'add', alice);
             expect(await reader.pins()).toContain(alice);
             expect(await reader.pins()).not.toContain(base);
-            // ...or its whole tree: dpm tree <cid> | ipfs pin add
+            // ...or its whole tree: dpm package tree <cid> --flat | ipfs pin add
             await ipfsWithInput(reader, (await tree(alice, reader)).join('\n') + '\n', 'pin', 'add');
             expect(await reader.pins()).toEqual(expect.arrayContaining([alice, base]));
         });

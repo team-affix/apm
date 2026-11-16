@@ -43,7 +43,7 @@ DPM defines no server and no API of its own. Packages are shared the way any IPF
 - **Keeping packages available** is pinning them on nodes that stay online. A user can ask any **IPFS pinning service** to keep a package, with Kubo's own `ipfs pin remote add --service=<service> <cid>`. Nothing is uploaded: the service's node fetches the package over IPFS from the user's node.
 - **Fetching** works from any node that has the package. To fetch from a particular service reliably, a client keeps its node connected to the service's node (Kubo's peering).
 
-A pinning service keeps only the CID it was asked to keep, not that package's dependencies. To keep a whole tree, ask it to keep each CID that `dpm tree <cid>` prints.
+A pinning service keeps only the CID it was asked to keep, not that package's dependencies. To keep a whole tree, ask it to keep each CID that `dpm package tree <cid> --flat` prints.
 
 What a service chooses to keep is its own policy. A service may check packages before keeping them. [unilog-server](https://github.com/team-affix/unilog-server) does this: it keeps a package only if the package and its whole tree check with Unilog, and it never removes what it accepted. Since a CID fixes its whole tree, a service that keeps a CID after checking it has checked exactly that content, permanently.
 

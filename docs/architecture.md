@@ -18,7 +18,7 @@ DPM is a thin layer over IPFS. It has three parts:
 
 `dpm` and the `ipfs` command both talk to the user's Kubo node through its private HTTP API. Content moves only between Kubo nodes, over IPFS, checked block by block against its CID.
 
-**`dpm` is a read-only interface to IPFS.** It talks to one Kubo node, normally the one running on the user's machine, using four read-only commands, and never adds, pins or deletes ([ipfs.md](ipfs.md) has the details). The dividing line: anything that works the same for any IPFS content is done by Kubo's `ipfs` command (adding, pinning, pushing to a server, connecting to a server's node, getting a folder by CID). Anything that needs to know what a DPM package is, is done by `dpm`: which files make up a package (`dpm pack`), which CIDs make up its tree (`dpm tree`), installing a project's dependencies (`dpm install`), and editing `dpm.json`.
+**`dpm` is a read-only interface to IPFS.** It talks to one Kubo node, normally the one running on the user's machine, using four read-only commands, and never adds, pins or deletes ([ipfs.md](ipfs.md) has the details). The dividing line: anything that works the same for any IPFS content is done by Kubo's `ipfs` command (adding, pinning, pushing to a server, connecting to a server's node, getting a folder by CID). Anything that needs to know what a DPM package is, is done by `dpm`: which files make up a package (`dpm pack`), which CIDs make up its tree (`dpm package tree`), installing a project's dependencies (`dpm install`), and editing `dpm.json`.
 
 ## What DPM does, and what it leaves to others
 

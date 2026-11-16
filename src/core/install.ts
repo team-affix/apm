@@ -67,7 +67,7 @@ export async function fetchTree(kubo: Kubo, roots: readonly string[], opts: Fetc
  * folder keeps its own dpm.json, so the tree is on disk: see `readInstalled`.
  *
  * Nothing is pinned. Fetched packages are cached like anything the node downloads; the user decides whether to
- * keep them after checking them (`dpm tree <cid> | ipfs pin add`). See docs/engineering.md.
+ * keep them after checking them (`dpm tree --flat | ipfs pin add`). See docs/engineering.md.
  *
  * DPM gives every package its own folder, named by CID, so two packages never collide on disk and the same
  * package is installed once. What packages mean, and what to do if two of them clash, is up to the tools that
