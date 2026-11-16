@@ -57,4 +57,6 @@ A server here is any IPFS pinning service, such as [unilog-server](https://githu
 
 | Command | Description |
 |---|---|
-| `dpm node [--set <url> [--auth <secret>]]` | Show which Kubo `dpm` talks to (its version and URL), or set the URL, and the secret if the node requires one (`bearer:<token>` or `basic:<user>:<password>`, as Kubo writes them) |
+| `dpm node` (or `dpm node show`) | Show which Kubo `dpm` talks to: its URL and version |
+| `dpm node set <url> [secret]` | Use the Kubo at `<url>`, with its secret if it requires one (`bearer:<token>` or `basic:<user>:<password>`, as Kubo writes them) |
+| `dpm node reset` | Go back to the default: the Kubo running on this machine, `http://127.0.0.1:5001` |

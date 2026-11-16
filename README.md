@@ -1,4 +1,4 @@
-# DPM: Decentralized Package Manager
+# DPM: Distributed Package Manager
 
 DPM is a thin layer over [IPFS](https://ipfs.tech) for packages that depend on each other by content.
 

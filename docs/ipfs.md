@@ -41,7 +41,7 @@ Servers are separate: any IPFS pinning service (for example [unilog-server](http
 
 ## Optional: a Kubo on another machine
 
-Most users never need this. Since DPM only sends HTTP requests to a URL, it can also read through a Kubo on another machine: `dpm node --set <url> --auth <secret>`, or the `DPM_KUBO_API` and `DPM_KUBO_AUTH` environment variables. The `ipfs` command can do the same with `--api=<address> --api-auth=<secret>` on every command.
+Most users never need this. Since DPM only sends HTTP requests to a URL, it can also read through a Kubo on another machine: `dpm node set <url> <secret>`, or the `DPM_KUBO_API` and `DPM_KUBO_AUTH` environment variables. The `ipfs` command can do the same with `--api=<address> --api-auth=<secret>` on every command.
 
 That Kubo's HTTP API allows every command by default, including deleting content and shutting the node down, so it must not be reachable from other machines as it is. Kubo can require a secret for every request, and limit each secret to particular commands (its `API.Authorizations` setting). For DPM, a secret allowed only the four commands above:
 

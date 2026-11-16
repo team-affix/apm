@@ -52,4 +52,10 @@ export class ClientConfig {
         if (auth) this.data.kuboAuth = auth;
         else delete this.data.kuboAuth;
     }
+
+    /** Forgets the node and its secret: back to the default, http://127.0.0.1:5001. */
+    resetKubo(): void {
+        delete this.data.kubo;
+        delete this.data.kuboAuth;
+    }
 }
