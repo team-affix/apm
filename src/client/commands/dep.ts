@@ -17,8 +17,8 @@ export const depCommands = {
                 }),
             ),
 
-    remove: () =>
-        new Command('remove')
+    rm: () =>
+        new Command('rm')
             .description("Remove direct dependencies from the project's dpm.json")
             .argument('<cid...>')
             .action(
