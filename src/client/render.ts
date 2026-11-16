@@ -10,7 +10,7 @@ export function boxed(text: string): string {
 }
 
 /**
- * A package and everything under it, drawn as a tree, as APM drew them: each package is a box with its CID, and
+ * A package and everything under it, drawn as a tree: each package is a box with its CID, and
  * its dependencies hang below it. A package that several others depend on appears under each of them.
  */
 export function renderTree(graph: Graph, cid: string, startPrefix = '', midPrefix = ''): string {

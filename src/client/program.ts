@@ -5,7 +5,7 @@ import { packageCommand } from './commands/package';
 import { projectCommand, projectCommands } from './commands/project';
 
 /**
- * `dpm`: the DPM client, organised as APM's was: commands grouped by what they act on, with shorthands for the
+ * `dpm`: the DPM client. Commands are grouped by what they act on, with shorthands for the
  * common ones.
  *
  *   dpm project <command>       the project in the current directory: init, install, pack, dep, tree
