@@ -94,6 +94,15 @@ jobs:
           npm run build
           npm pack --pack-destination dist-release
 
+      - name: Add copies under names without the version
+        if: steps.decide.outputs.release == 'true'
+        # So .../releases/latest/download/<name> always gets the newest release's file.
+        working-directory: dist-release
+        run: |
+          cp "dpm-$VERSION.cjs" dpm.cjs
+          cp "team-affix-dpm-$VERSION.tgz" dpm.tgz
+          ls -l
+
       - name: Create the GitHub Release
         if: steps.decide.outputs.release == 'true'
         uses: softprops/action-gh-release@v2
