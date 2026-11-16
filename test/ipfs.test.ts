@@ -5,7 +5,7 @@ import os from 'os';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { pack, tree } from '../src/client';
-import { install, Kubo, readGraph, writeManifest } from '../src/core';
+import { install, Kubo, readInstalled, writeManifest } from '../src/core';
 import { hasLocally, IPFS_BIN, readTree, startNode, TestNode, tmpDir, writeTree } from './helpers';
 
 /** A package folder with the given files and dependencies. */
@@ -24,7 +24,7 @@ async function ipfs(node: Kubo, ...args: string[]): Promise<string> {
     return ipfsWithInput(node, '', ...args);
 }
 
-/** The same, with `input` piped to its stdin: e.g. `dpm tree <cid> | ipfs pin add`. */
+/** The same, with `input` piped to its stdin: e.g. `dpm package tree <cid> --flat | ipfs pin add`. */
 async function ipfsWithInput(node: Kubo, input: string, ...args: string[]): Promise<string> {
     const port = new URL(node.api).port;
     const run = promisify(execFile)(IPFS_BIN as string, [`--api=/ip4/127.0.0.1/tcp/${port}`, ...args]);
@@ -149,7 +149,9 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
                 [`${alice}/Alice/Beliefs.ul`]: 'a',
                 [`${bob}/Bob/Beliefs.ul`]: 'b',
             });
-            expect(readGraph(app)).toEqual(graph);
+            // Nothing else is written: the installed tree is read back from the packages' own dpm.json files.
+            expect(fs.readdirSync(path.join(app, 'deps')).sort()).toEqual([alice, base, bob].sort());
+            expect(readInstalled(app)).toEqual(graph);
         });
 
         it('installs without pinning; the user pins what they decide to keep with ipfs pin add', async () => {
@@ -165,7 +167,7 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             await ipfs(reader, 'pin', 'add', alice);
             expect(await reader.pins()).toContain(alice);
             expect(await reader.pins()).not.toContain(base);
-            // ...or its whole tree: dpm tree <cid> | ipfs pin add
+            // ...or its whole tree: dpm package tree <cid> --flat | ipfs pin add
             await ipfsWithInput(reader, (await tree(alice, reader)).join('\n') + '\n', 'pin', 'add');
             expect(await reader.pins()).toEqual(expect.arrayContaining([alice, base]));
         });
@@ -177,8 +179,10 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             const app = project({}, [base, other]);
             await install(app, reader);
             writeManifest(app, { deps: [base] });
+            // A deps/graph.json from DPM 0.3.1 or earlier is removed too.
+            fs.writeFileSync(path.join(app, 'deps', 'graph.json'), '{}');
             await install(app, reader);
-            expect(fs.readdirSync(path.join(app, 'deps')).sort()).toEqual([base, 'graph.json'].sort());
+            expect(fs.readdirSync(path.join(app, 'deps'))).toEqual([base]);
         });
 
         it('fails, naming the package, when a dependency cannot be found anywhere', async () => {

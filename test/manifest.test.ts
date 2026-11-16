@@ -1,5 +1,7 @@
+import fs from 'fs';
+import path from 'path';
 import { describe, expect, it } from 'vitest';
-import { isCid, ManifestError, manifest, parseManifest, readManifest, writeManifest } from '../src/core';
+import { isCid, ManifestError, manifest, parseManifest, readInstalled, readManifest, writeManifest } from '../src/core';
 import { tmpDir } from './helpers';
 
 const A = 'bafybeieedcwo4wyypn4l2r73564segyb3evs7zeeomxbci7pedrif3c2pu';
@@ -36,5 +38,26 @@ describe('dpm.json', () => {
         const dir = tmpDir();
         writeManifest(dir, { deps: [B, A] });
         expect(readManifest(dir)).toEqual({ deps: [A, B] });
+    });
+});
+
+describe('the installed tree, read from the dpm.json files', () => {
+    it("names a package that isn't installed", () => {
+        const dir = tmpDir();
+        writeManifest(dir, { deps: [A] });
+        expect(() => readInstalled(dir)).toThrow(`${A} is not installed: run 'dpm install'`);
+    });
+
+    it('follows each installed package to its own dependencies', () => {
+        const dir = tmpDir();
+        writeManifest(dir, { deps: [A] });
+        for (const [cid, deps] of [
+            [A, [B]],
+            [B, []],
+        ] as const) {
+            fs.mkdirSync(path.join(dir, 'deps', cid), { recursive: true });
+            writeManifest(path.join(dir, 'deps', cid), { deps });
+        }
+        expect(readInstalled(dir)).toEqual({ root: [A], packages: { [A]: { deps: [B] }, [B]: { deps: [] } } });
     });
 });

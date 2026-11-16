@@ -29,7 +29,7 @@ export function pack(dir: string, out?: string): string {
 
 /**
  * A package and every package it depends on, recursively, each once: the package first. For example, to pin a
- * whole tree: `dpm tree <cid> | ipfs pin add`.
+ * whole tree: `dpm package tree <cid> --flat | ipfs pin add`.
  */
 export async function tree(cid: string, kubo: Kubo): Promise<string[]> {
     return Object.keys((await fetchTree(kubo, [cid])).packages);

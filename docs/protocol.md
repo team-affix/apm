@@ -27,12 +27,13 @@ Installing a project means:
 
 1. Fetching every package reachable from the project's `dpm.json`, following each package's `dpm.json`. Each CID is fetched once, however many packages depend on it.
 2. Writing each package to `deps/<cid>/`. The layout is **flat**: every package sits directly under `deps/`, however deep it is in the tree.
-3. Writing `deps/graph.json`: `{ "root": [<the project's deps>], "packages": { "<cid>": { "deps": [...] } } }`.
-4. Removing any `deps/<cid>/` no longer in the graph.
+3. Removing any `deps/<cid>/` no longer in the tree.
+
+Each installed package keeps its own `dpm.json`, so the whole tree is on disk: start from the project's `dpm.json`, and follow each CID to `deps/<cid>/dpm.json`.
 
 Installation fails if any CID in the tree cannot be fetched. Packages are fetched over IPFS from whichever node has them.
 
-DPM never interprets content. What the packages mean, and what to do if two of them clash (for example, two different packages providing the same module), is up to the tools that use them, which can read everything from `deps/` and `graph.json`.
+DPM never interprets content. What the packages mean, and what to do if two of them clash (for example, two different packages providing the same module), is up to the tools that use them, which can read everything from `deps/`.
 
 ## 3. Sharing packages
 
@@ -42,7 +43,7 @@ DPM defines no server and no API of its own. Packages are shared the way any IPF
 - **Keeping packages available** is pinning them on nodes that stay online. A user can ask any **IPFS pinning service** to keep a package, with Kubo's own `ipfs pin remote add --service=<service> <cid>`. Nothing is uploaded: the service's node fetches the package over IPFS from the user's node.
 - **Fetching** works from any node that has the package. To fetch from a particular service reliably, a client keeps its node connected to the service's node (Kubo's peering).
 
-A pinning service keeps only the CID it was asked to keep, not that package's dependencies. To keep a whole tree, ask it to keep each CID that `dpm tree <cid>` prints.
+A pinning service keeps only the CID it was asked to keep, not that package's dependencies. To keep a whole tree, ask it to keep each CID that `dpm package tree <cid> --flat` prints.
 
 What a service chooses to keep is its own policy. A service may check packages before keeping them. [unilog-server](https://github.com/team-affix/unilog-server) does this: it keeps a package only if the package and its whole tree check with Unilog, and it never removes what it accepted. Since a CID fixes its whole tree, a service that keeps a CID after checking it has checked exactly that content, permanently.
 
