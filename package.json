@@ -1,6 +1,6 @@
 {
     "name": "@team-affix/dpm",
-    "version": "0.4.0",
+    "version": "0.5.0",
     "description": "Distributed Package Manager: folders identified by their IPFS CID, depending on each other by CID.",
     "license": "MIT",
     "author": "Team Affix",
