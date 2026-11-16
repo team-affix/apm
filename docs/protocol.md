@@ -27,12 +27,13 @@ Installing a project means:
 
 1. Fetching every package reachable from the project's `dpm.json`, following each package's `dpm.json`. Each CID is fetched once, however many packages depend on it.
 2. Writing each package to `deps/<cid>/`. The layout is **flat**: every package sits directly under `deps/`, however deep it is in the tree.
-3. Writing `deps/graph.json`: `{ "root": [<the project's deps>], "packages": { "<cid>": { "deps": [...] } } }`.
-4. Removing any `deps/<cid>/` no longer in the graph.
+3. Removing any `deps/<cid>/` no longer in the tree.
+
+Each installed package keeps its own `dpm.json`, so the whole tree is on disk: start from the project's `dpm.json`, and follow each CID to `deps/<cid>/dpm.json`.
 
 Installation fails if any CID in the tree cannot be fetched. Packages are fetched over IPFS from whichever node has them.
 
-DPM never interprets content. What the packages mean, and what to do if two of them clash (for example, two different packages providing the same module), is up to the tools that use them, which can read everything from `deps/` and `graph.json`.
+DPM never interprets content. What the packages mean, and what to do if two of them clash (for example, two different packages providing the same module), is up to the tools that use them, which can read everything from `deps/`.
 
 ## 3. Sharing packages
 

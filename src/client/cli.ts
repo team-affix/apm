@@ -2,7 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 import { Command } from 'commander';
-import { assertCid, DEPS, DpmError, install, readGraph, readManifest, writeManifest } from '../core';
+import { assertCid, DEPS, DpmError, install, readInstalled, readManifest, writeManifest } from '../core';
 import { VERSION } from '../version';
 import { ClientConfig } from './config';
 import { pack, tree } from './client';
@@ -78,9 +78,7 @@ program
 
 program
     .command('install')
-    .description(
-        'Fetch every dependency, by CID, into deps/<cid>/, and write deps/graph.json. Nothing is pinned: fetched data is only cached.',
-    )
+    .description('Fetch every dependency, by CID, into deps/<cid>/. Nothing is pinned: fetched data is only cached.')
     .option('--timeout <duration>', 'how long fetching one package may take, e.g. 60s', '120s')
     .action(
         run(async (opts: { timeout: string }) => {
@@ -116,8 +114,7 @@ program
     .description("List the project's installed packages, with what each contains at its top level")
     .action(
         run(() => {
-            const graph = readGraph(dir());
-            if (!graph) throw new DpmError("Nothing installed: run 'dpm install'");
+            const graph = readInstalled(dir());
             for (const [cid, { deps }] of Object.entries(graph.packages)) {
                 const top = fs
                     .readdirSync(path.join(dir(), DEPS, cid))

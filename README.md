@@ -4,7 +4,7 @@ DPM is a thin layer over [IPFS](https://ipfs.tech) for packages that depend on e
 
 - A **package is a folder**, and its **ID is the folder's IPFS CID**. There are no package names: the folder's contents, folder names included, are what it is.
 - A package's `dpm.json` lists the packages it depends on, **by CID only**, never by location. Any IPFS node holding the content is as good a source as any other, and every block is checked against its CID.
-- `dpm install` fetches the whole tree and lays it out **flat**, as `deps/<cid>/`, each package once, plus `deps/graph.json`. Since a CID fixes its entire dependency tree, there is nothing to resolve: DPM has no names, no overrides and no conflicts. What packages mean, and what to do when two of them clash, is left to the tools that use them.
+- `dpm install` fetches the whole tree and lays it out **flat**, as `deps/<cid>/`, each package once. Since a CID fixes its entire dependency tree, there is nothing to resolve: DPM has no names, no overrides and no conflicts. What packages mean, and what to do when two of them clash, is left to the tools that use them.
 - **Sharing is plain IPFS.** To keep a package online, push it to any IPFS pinning service with Kubo's own `ipfs pin remote add`. Pushing never uploads anything: you send the CID, and the service's IPFS node fetches it from yours. A service decides what it keeps: [unilog-server](https://github.com/team-affix/unilog-server) keeps only packages that check with Unilog.
 - **`dpm` is a read-only interface to IPFS.** It reads packages through the Kubo node running on your machine, and never changes anything in IPFS. Adding, pinning, pushing and connecting to servers are done with the `ipfs` command; `dpm` handles what needs package knowledge: what to add (`dpm pack`), which CIDs make up a tree (`dpm tree`), and installing. See [how DPM uses IPFS](docs/ipfs.md).
 
@@ -40,7 +40,7 @@ ipfs pin remote add --service=home $BASE      # push it: the service fetches it 
 mkdir ../app && cd ../app
 dpm init
 dpm add $BASE
-dpm install                                   # writes deps/<cid>/Kant/Ethics.ul and deps/graph.json (nothing pinned)
+dpm install                                   # writes deps/<cid>/Kant/Ethics.ul (nothing pinned)
 dpm tree $BASE | ipfs pin add                 # after checking it: keep it, and its whole tree, in your node
 ```
 

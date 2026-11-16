@@ -4,7 +4,7 @@ import { KuboError, ManifestError } from './errors';
 import { Kubo } from './kubo';
 import { isCid, MANIFEST, parseManifest, readManifest } from './manifest';
 
-/** Who depends on whom, as installed: written to `deps/graph.json`. */
+/** A dependency tree: who depends on whom. */
 export interface Graph {
     /** The project's own direct dependencies. */
     readonly root: readonly string[];
@@ -13,7 +13,6 @@ export interface Graph {
 }
 
 export const DEPS = 'deps';
-export const GRAPH = 'graph.json';
 
 /** The dependencies of a package already fetched, from its dpm.json. Without one, it isn't a DPM package. */
 export async function depsOf(kubo: Kubo, cid: string): Promise<readonly string[]> {
@@ -64,7 +63,8 @@ export async function fetchTree(kubo: Kubo, roots: readonly string[], opts: Fetc
 
 /**
  * Installs a project's dependencies: fetches the whole tree, writes each package to `deps/<cid>/` (flat: however
- * deep it is in the tree), removes packages no longer needed, and writes `deps/graph.json`.
+ * deep it is in the tree), and removes packages no longer needed. Returns the tree it installed. Each package's
+ * folder keeps its own dpm.json, so the tree is on disk: see `readInstalled`.
  *
  * Nothing is pinned. Fetched packages are cached like anything the node downloads; the user decides whether to
  * keep them after checking them (`dpm tree <cid> | ipfs pin add`). See docs/engineering.md.
@@ -84,12 +84,27 @@ export async function install(dir: string, kubo: Kubo, opts: FetchOptions = {}):
     }
     for (const name of fs.readdirSync(deps))
         if (isCid(name) && !graph.packages[name]) fs.rmSync(path.join(deps, name), { recursive: true, force: true });
-    fs.writeFileSync(path.join(deps, GRAPH), JSON.stringify(graph, null, 4) + '\n');
+    // DPM 0.3.1 and earlier also wrote the tree to deps/graph.json; it repeated what the dpm.json files say.
+    fs.rmSync(path.join(deps, 'graph.json'), { force: true });
     return graph;
 }
 
-/** The installed graph, if any. */
-export function readGraph(dir: string): Graph | undefined {
-    const file = path.join(dir, DEPS, GRAPH);
-    return fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, 'utf8')) as Graph) : undefined;
+/**
+ * The tree installed in a project, read from disk: the project's own dpm.json, then each installed package's
+ * dpm.json in `deps/<cid>/`. Fails if a package in the tree isn't installed (run `dpm install`).
+ */
+export function readInstalled(dir: string): Graph {
+    const root = readManifest(dir).deps;
+    const packages: Record<string, { deps: readonly string[] }> = {};
+    const queue = [...root];
+    for (let cid = queue.shift(); cid !== undefined; cid = queue.shift()) {
+        if (packages[cid]) continue;
+        const folder = path.join(dir, DEPS, cid);
+        if (!fs.existsSync(path.join(folder, MANIFEST)))
+            throw new ManifestError(`${cid} is not installed: run 'dpm install'`);
+        const deps = readManifest(folder).deps;
+        packages[cid] = { deps };
+        queue.push(...deps);
+    }
+    return { root, packages };
 }
