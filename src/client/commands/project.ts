@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { Command } from 'commander';
-import { DEPS, DpmError, install, MANIFEST, readInstalled, writeManifest } from '../../core';
+import { DEPS, DpmError, install, MANIFEST, readInstalled, readManifest, writeManifest } from '../../core';
 import { pack } from '../client';
 import { ClientConfig } from '../config';
 import { renderFlat, renderTree } from '../render';
@@ -35,6 +35,22 @@ export const projectCommands = {
                     const graph = await install(dir, ClientConfig.load().kubo(opts.timeout));
                     const n = Object.keys(graph.packages).length;
                     console.log(`installed ${n} package${n === 1 ? '' : 's'} into ${path.join(dir, DEPS)}`);
+                }),
+            ),
+
+    clean: () =>
+        new Command('clean')
+            .description(
+                "Delete the project's deps/ folder: everything dpm install wrote. Nothing in IPFS is touched; " +
+                    'dpm install brings it all back.',
+            )
+            .action(
+                run((dir) => {
+                    readManifest(dir); // only in a DPM project: never another folder's deps/
+                    const deps = path.join(dir, DEPS);
+                    if (!fs.existsSync(deps)) return void console.log('nothing to clean: no deps/ folder');
+                    fs.rmSync(deps, { recursive: true, force: true });
+                    console.log(`deleted ${deps}`);
                 }),
             ),
 

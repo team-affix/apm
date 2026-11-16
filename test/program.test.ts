@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { describe, expect, it, vi } from 'vitest';
 import { readManifest, writeManifest } from '../src/core';
 import { tmpDir } from './helpers';
@@ -15,8 +17,8 @@ describe('the dpm command line', () => {
     const group = (name: string) => sub(dpm, name);
 
     it('groups commands by what they act on: project (with dep), package, node', () => {
-        expect(names(group('project'))).toEqual(['init', 'install', 'pack', 'dep', 'tree']);
-        expect(names(sub(group('project'), 'dep'))).toEqual(['add', 'remove', 'ls']);
+        expect(names(group('project'))).toEqual(['init', 'install', 'clean', 'pack', 'dep', 'tree']);
+        expect(names(sub(group('project'), 'dep'))).toEqual(['add', 'rm', 'ls']);
         expect(names(group('package'))).toEqual(['tree']);
         expect(names(group('node'))).toEqual(['show', 'set', 'reset']);
     });
@@ -30,12 +32,14 @@ describe('the dpm command line', () => {
                 expect(s.options.map((o) => o.flags)).toEqual(l.options.map((o) => o.flags));
             }
         }
-        expect(names(sub(dpm, 'dep'))).toEqual(['add', 'remove', 'ls']);
+        expect(names(sub(dpm, 'dep'))).toEqual(['add', 'rm', 'ls']);
     });
 
-    it('has no dpm add or dpm remove: those are dpm dep add and dpm dep remove', () => {
+    it('has no dpm add, rm or remove: those are dpm dep add and dpm dep rm', () => {
         expect(names(dpm)).not.toContain('add');
         expect(names(dpm)).not.toContain('remove');
+        expect(names(dpm)).not.toContain('rm');
+        expect(names(sub(dpm, 'dep'))).not.toContain('remove');
     });
 
     it('has no top-level dpm ls: direct dependencies are dpm dep ls, the installed tree dpm tree', () => {
@@ -57,6 +61,35 @@ describe('the dpm command line', () => {
             expect(log.mock.calls).toEqual([[A], [B], [A], [B]]);
         } finally {
             log.mockRestore();
+        }
+    });
+
+    it('dpm clean deletes deps/ and nothing else, only in a DPM project', async () => {
+        const dir = tmpDir();
+        writeManifest(dir, { deps: [] });
+        fs.mkdirSync(path.join(dir, 'deps', 'bafyexample'), { recursive: true });
+        fs.writeFileSync(path.join(dir, 'Main.ul'), 'x : p;');
+        const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+        try {
+            await program().parseAsync(['node', 'dpm', '-C', dir, 'clean']);
+            expect(fs.readdirSync(dir).sort()).toEqual(['Main.ul', 'dpm.json']);
+            await program().parseAsync(['node', 'dpm', '-C', dir, 'project', 'clean']);
+            expect(log.mock.calls.at(-1)).toEqual(['nothing to clean: no deps/ folder']);
+        } finally {
+            log.mockRestore();
+        }
+
+        // Not a DPM project: its deps/ folder is left alone.
+        const other = tmpDir();
+        fs.mkdirSync(path.join(other, 'deps'));
+        const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        try {
+            await program().parseAsync(['node', 'dpm', '-C', other, 'clean']);
+            expect(error.mock.calls[0]?.[0]).toMatch(/is not a DPM project/);
+            expect(fs.existsSync(path.join(other, 'deps'))).toBe(true);
+        } finally {
+            error.mockRestore();
+            process.exitCode = 0;
         }
     });
 });

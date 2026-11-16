@@ -8,8 +8,8 @@ import { projectCommand, projectCommands } from './commands/project';
  * `dpm`: the DPM client. Commands are grouped by what they act on, with shorthands for the
  * common ones.
  *
- *   dpm project <command>       the project in the current directory: init, install, pack, dep, tree
- *   dpm project dep <command>   its direct dependencies: add, remove, ls
+ *   dpm project <command>       the project in the current directory: init, install, clean, pack, dep, tree
+ *   dpm project dep <command>   its direct dependencies: add, rm, ls
  *   dpm package <command>       a package, by CID: tree
  *   dpm node <command>          which Kubo dpm reads through: show, set, reset
  *

@@ -33,9 +33,10 @@ Every `dpm project` command has a shorthand without `project`: `dpm install` is 
 |---|---|---|
 | `dpm project init` | `dpm init` | Create `dpm.json` |
 | `dpm project install [--timeout 120s]` | `dpm install` | Fetch every dependency into `deps/<cid>/`. Your node fetches each package from whichever node has it. Nothing is pinned: fetched packages are cached like anything your node downloads. |
+| `dpm project clean` | `dpm clean` | Delete the project's `deps/` folder: everything `dpm install` wrote. Nothing in IPFS is touched, and `dpm install` brings it all back. Refuses a folder without `dpm.json`. |
 | `dpm project pack [-o <folder>]` | `dpm pack` | Write the project's package (everything except `deps/` and hidden files) to a new folder, and print the folder's path. Without `-o`, it is a temporary folder named by a random GUID; with `-o`, the folder must not exist yet. The folder is the package, to be added with `ipfs add -r` as it is, not edited. `pack` doesn't touch IPFS. |
 | `dpm project dep add <cid...>` | `dpm dep add` | Add direct dependencies to `dpm.json` |
-| `dpm project dep remove <cid...>` | `dpm dep remove` | Remove direct dependencies from `dpm.json` |
+| `dpm project dep rm <cid...>` | `dpm dep rm` | Remove direct dependencies from `dpm.json` |
 | `dpm project dep ls` | `dpm dep ls` | List the direct dependencies only, one CID per line, from `dpm.json`. Needs no install and no Kubo. |
 | `dpm project tree [--flat]` | `dpm tree` | Draw the installed dependency tree, read from the `dpm.json` files in `deps/`. With `--flat`: every installed package once, one CID per line, for piping. |
 | `dpm package tree <cid> [--flat] [--timeout 120s]` | | Draw the package and every package it depends on, recursively, fetched through Kubo (not pinned). With `--flat`: each once, one CID per line, for piping. Everything is fetched before anything is printed, so if the tree can't be completed, nothing is printed. |
