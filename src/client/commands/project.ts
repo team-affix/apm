@@ -1,15 +1,18 @@
 import fs from 'fs';
 import path from 'path';
 import { Command } from 'commander';
-import { assertCid, DEPS, DpmError, install, MANIFEST, readInstalled, readManifest, writeManifest } from '../../core';
+import { DEPS, DpmError, install, MANIFEST, readInstalled, writeManifest } from '../../core';
 import { pack } from '../client';
 import { ClientConfig } from '../config';
 import { renderFlat, renderTree } from '../render';
+import { depCommand } from './dep';
 import { run, TIMEOUT } from './run';
 
 /**
  * `dpm project ...`: commands on the project in the current directory (or `-C <dir>`). Each command is built by
- * one function, used both for `dpm project <name>` and for its shorthand `dpm <name>` (see program.ts).
+ * one function, used both for `dpm project <name>` and for its shorthand `dpm <name>` (see program.ts). That
+ * includes `dep`, the group of commands on the project's direct dependencies: `dpm project dep add` is also
+ * `dpm dep add`.
  */
 export const projectCommands = {
     init: () =>
@@ -20,29 +23,6 @@ export const projectCommands = {
                 console.log(`created ${path.join(dir, MANIFEST)}`);
             }),
         ),
-
-    add: () =>
-        new Command('add')
-            .description("Add direct dependencies to the project's dpm.json, by CID")
-            .argument('<cid...>')
-            .action(
-                run((dir, cids: string[]) => {
-                    writeManifest(dir, { deps: [...readManifest(dir).deps, ...cids.map(assertCid)] });
-                }),
-            ),
-
-    remove: () =>
-        new Command('remove')
-            .description("Remove direct dependencies from the project's dpm.json")
-            .argument('<cid...>')
-            .action(
-                run((dir, cids: string[]) => {
-                    const { deps } = readManifest(dir);
-                    const missing = cids.filter((c) => !deps.includes(c));
-                    if (missing.length) throw new DpmError(`Not a dependency: ${missing.join(', ')}`);
-                    writeManifest(dir, { deps: deps.filter((d) => !cids.includes(d)) });
-                }),
-            ),
 
     install: () =>
         new Command('install')
@@ -67,6 +47,8 @@ export const projectCommands = {
             .option('-o, --out <folder>', 'write the package to this new folder instead')
             .action(run((dir, opts: { out?: string }) => console.log(pack(dir, opts.out)))),
 
+    dep: depCommand,
+
     tree: () =>
         new Command('tree')
             .description(
@@ -86,7 +68,7 @@ export const projectCommands = {
 
 export function projectCommand(): Command {
     const project = new Command('project').description(
-        'Manage the project in the current directory (or -C <dir>): its dpm.json and its installed dependencies',
+        'The project in the current directory (or -C <dir>): create it, manage its direct dependencies, install them, pack it, draw its tree',
     );
     for (const make of Object.values(projectCommands)) project.addCommand(make());
     return project;

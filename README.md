@@ -39,7 +39,7 @@ ipfs pin remote add --service=home $BASE      # push it: the service fetches it 
 # depend on it
 mkdir ../app && cd ../app
 dpm init
-dpm add $BASE
+dpm dep add $BASE
 dpm install                                   # writes deps/<cid>/Kant/Ethics.ul (nothing pinned)
 dpm tree                                      # draw the installed tree
 dpm tree --flat | ipfs pin add                # after checking it: keep everything installed, in your node

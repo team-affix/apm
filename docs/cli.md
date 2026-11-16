@@ -23,18 +23,20 @@ Kubo does all the work of finding, fetching and verifying content; `dpm` only as
 Commands are grouped by what they act on, as in APM:
 
 - **`dpm project <command>`**: the project in the current directory, or the one given with `-C <dir>`. A project is a folder with a `dpm.json` (`{ "deps": [CID, ...] }`); the folder is a DPM package because it has one. Installed dependencies go in `deps/<cid>/`, each with its own `dpm.json`.
+- **`dpm project dep <command>`**: the project's direct dependencies, the CIDs listed in its `dpm.json`.
 - **`dpm package <command>`**: a package, by CID, read through Kubo. No project needed.
 - **`dpm node <command>`**: which Kubo `dpm` reads through.
 
-Every `dpm project` command has a shorthand without `project`: `dpm install` is `dpm project install`, and `dpm tree` is `dpm project tree`.
+Every `dpm project` command has a shorthand without `project`: `dpm install` is `dpm project install`, `dpm tree` is `dpm project tree`, and `dpm dep` is `dpm project dep`, with all its subcommands (`dpm dep add`).
 
 | Command | Shorthand | Description |
 |---|---|---|
 | `dpm project init` | `dpm init` | Create `dpm.json` |
-| `dpm project add <cid...>` | `dpm add` | Add direct dependencies to `dpm.json` |
-| `dpm project remove <cid...>` | `dpm remove` | Remove direct dependencies from `dpm.json` |
 | `dpm project install [--timeout 120s]` | `dpm install` | Fetch every dependency into `deps/<cid>/`. Your node fetches each package from whichever node has it. Nothing is pinned: fetched packages are cached like anything your node downloads. |
 | `dpm project pack [-o <folder>]` | `dpm pack` | Write the project's package (everything except `deps/` and hidden files) to a new folder, and print the folder's path. Without `-o`, it is a temporary folder named by a random GUID; with `-o`, the folder must not exist yet. The folder is the package, to be added with `ipfs add -r` as it is, not edited. `pack` doesn't touch IPFS. |
+| `dpm project dep add <cid...>` | `dpm dep add` | Add direct dependencies to `dpm.json` |
+| `dpm project dep remove <cid...>` | `dpm dep remove` | Remove direct dependencies from `dpm.json` |
+| `dpm project dep ls` | `dpm dep ls` | List the direct dependencies only, one CID per line, from `dpm.json`. Needs no install and no Kubo. |
 | `dpm project tree [--flat]` | `dpm tree` | Draw the installed dependency tree, read from the `dpm.json` files in `deps/`. With `--flat`: every installed package once, one CID per line, for piping. |
 | `dpm package tree <cid> [--flat] [--timeout 120s]` | | Draw the package and every package it depends on, recursively, fetched through Kubo (not pinned). With `--flat`: each once, one CID per line, for piping. Everything is fetched before anything is printed, so if the tree can't be completed, nothing is printed. |
 
