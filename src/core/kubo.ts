@@ -21,8 +21,8 @@ export function authorizationHeader(secret: string): string {
  * `version` (see docs/ipfs.md). The node may be on this machine or another: it's only a URL. A node reachable
  * from other machines should require a secret limited to those requests (Kubo's `API.Authorizations`).
  *
- * The admin requests a DPM server makes on its own node (pinning, garbage collection, connecting to peers) are
- * in the server's `KuboAdmin`.
+ * It is meant to be extended: `call` and `json` are protected, so a program that does need other requests (e.g. a
+ * server pinning what it accepts) can add them in a subclass of its own.
  */
 export class Kubo {
     private readonly authorization?: string;

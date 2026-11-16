@@ -1,6 +1,6 @@
 # The DPM protocol
 
-DPM is a thin layer over IPFS. IPFS provides identity, storage, transfer and verification; DPM adds only what IPFS does not: how a package names its dependencies, how they are installed, and how servers are asked to keep packages. Anyone may implement a client or server. What a server chooses to *keep* is its own policy.
+DPM is a thin layer over IPFS. IPFS provides identity, storage, transfer and verification; DPM adds only what IPFS does not: how a package names its dependencies, and how they are installed. Sharing packages is plain IPFS: any node, or any IPFS pinning service, can keep and serve them.
 
 "MUST", "MUST NOT" and "MAY" are used in their usual specification sense.
 
@@ -30,39 +30,24 @@ Installing a project means:
 3. Writing `deps/graph.json`: `{ "root": [<the project's deps>], "packages": { "<cid>": { "deps": [...] } } }`.
 4. Removing any `deps/<cid>/` no longer in the graph.
 
-Installation fails if any CID in the tree cannot be fetched. Packages are fetched over IPFS from whichever node has them; a client never contacts a server to install. To fetch from a server reliably, a client keeps its node connected to the server's node (Kubo's peering).
+Installation fails if any CID in the tree cannot be fetched. Packages are fetched over IPFS from whichever node has them.
 
 DPM never interprets content. What the packages mean, and what to do if two of them clash (for example, two different packages providing the same module), is up to the tools that use them, which can read everything from `deps/` and `graph.json`.
 
-## 3. Servers
+## 3. Sharing packages
 
-A DPM server keeps packages and makes them available. It speaks the **IPFS Pinning Service API** ([spec](https://ipfs.github.io/pinning-services-api-spec/)), so any IPFS tool can use it:
+DPM defines no server and no API of its own. Packages are shared the way any IPFS content is:
 
-| Request | Meaning |
-|---|---|
-| `POST /pins` `{ "cid", "name"?, "origins"? }` | Please keep `cid`. `origins` are multiaddrs of nodes that have it. |
-| `GET /pins?cid=…&status=…&limit=…` | Requests, filtered by CID and state (default `pinned`) |
-| `GET /pins/:requestid` | One request's status |
-| `DELETE /pins/:requestid` | Withdraw a request |
+- **Publishing** is adding the package's folder to an IPFS node (`ipfs add -r`). Anyone who can reach that node, or any other node holding the content, can fetch it by CID.
+- **Keeping packages available** is pinning them on nodes that stay online. A user can ask any **IPFS pinning service** to keep a package, with Kubo's own `ipfs pin remote add --service=<service> <cid>`. Nothing is uploaded: the service's node fetches the package over IPFS from the user's node.
+- **Fetching** works from any node that has the package. To fetch from a particular service reliably, a client keeps its node connected to the service's node (Kubo's peering).
 
-A server answers nothing else. In particular, it never exposes its node's RPC API.
+A pinning service keeps only the CID it was asked to keep, not that package's dependencies. To keep a whole tree, ask it to keep each CID that `dpm tree <cid>` prints.
 
-Statuses go `queued`, then `pinning`, then `pinned` or `failed`. Each carries the server's `delegates`: multiaddrs of its node. A failure's reason is in `info.reason`.
-
-**Content never travels over this API.** To push, a client sends the CID and its own node's addresses as `origins`, then connects its node to the server's `delegates`. The server's node fetches the package over IPFS, from the origins or from any other node that has it. Since the client opened the connection, this works even if the client cannot be reached from outside. Kubo does all of this itself: `ipfs pin remote add --service=<server> <cid>`.
-
-A server:
-
-- MUST fetch the package's whole tree (following `dpm.json`) before reporting it `pinned`, so its policy can look at all of it, and MUST keep the package until the request is withdrawn.
-- MAY pin the package's dependencies too. The reference server pins only what was pushed, by default: it fetches the dependencies to apply its policy, without pinning them, so they stay only as cached data until garbage collection, as with anything a Kubo node fetches (`DPM_KEEP_DEPS=1` pins them). A client that wants a server to keep dependencies pushes each of them (each CID `dpm tree <cid>` prints, with `ipfs pin remote add`).
-- SHOULD delete what it refused or released (garbage-collect its node), so it stops serving it. A server SHOULD use a node of its own, so everything the node holds is something the server chose to keep.
-- MAY refuse any package for any reason, reporting it `failed`, with a reason in `info.reason` if it likes. Acceptance policy is the server's own: the reference server keeps any package whose tree can be fetched, a logic server also requires the content to check, and an operator may add size limits or access tokens.
-- MAY require an access token (`Authorization: Bearer <token>`) for adding or withdrawing pins.
-
-Since a CID fixes its whole tree, a server that keeps a CID after checking it has checked exactly that content, permanently.
+What a service chooses to keep is its own policy. A service may check packages before keeping them. [unilog-server](https://github.com/team-affix/unilog-server) does this: it keeps a package only if the package and its whole tree check with Unilog, and it never removes what it accepted. Since a CID fixes its whole tree, a service that keeps a CID after checking it has checked exactly that content, permanently.
 
 ## 4. Nodes
 
 A node may be shared with other applications. DPM adds nothing to a node: pins carry no DPM-specific name or label, and a package is recognised only by its content (a `dpm.json` at the top level).
 
-A node's RPC API is its private admin interface and MUST NOT be exposed. Nodes reach each other through IPFS's own peer-to-peer port. A server exposes that port and its Pinning Service API; a client needs neither exposed, since it only connects out.
+A node's RPC API is its private admin interface and MUST NOT be exposed as it is (see [ipfs.md](ipfs.md) for giving `dpm` read-only access to a node on another machine). Nodes reach each other through IPFS's own peer-to-peer port.

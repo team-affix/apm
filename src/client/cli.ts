@@ -11,13 +11,13 @@ import { pack, tree } from './client';
  * `dpm`: the DPM client. Packages are folders with a `dpm.json`, identified by their IPFS CID; `dpm.json` lists
  * the CIDs a package depends on.
  *
- * `dpm` does package management. It talks to one Kubo node, on this machine or another, and only reads from it
+ * `dpm` does package management. It talks to one Kubo node, normally the one running on this machine, and only reads from it
  * (see docs/ipfs.md). Kubo does everything else: adding, pinning, and every exchange with other machines, servers
  * included:
  *
  *   ipfs add -r -Q "$(dpm pack)"                    add a package to your node
  *   dpm tree <cid> | ipfs pin add                   pin a package and its whole tree
- *   ipfs pin remote add --service=<server> <cid>    push a package to a DPM server
+ *   ipfs pin remote add --service=<server> <cid>    push a package to a server (any IPFS pinning service)
  *   ipfs swarm peering add <server address>         stay connected to a server, to fetch from it
  */
 const program = new Command()
@@ -131,7 +131,9 @@ program
 
 program
     .command('node')
-    .description("Show which Kubo dpm reads through, or set it: the URL of Kubo's HTTP API, on this machine or another")
+    .description(
+        'Show which Kubo dpm reads through (by default the one running on this machine), or set the URL of its HTTP API',
+    )
     .option('--set <url>', "set the URL of Kubo's HTTP API (default http://127.0.0.1:5001)")
     .option(
         '--auth <secret>',

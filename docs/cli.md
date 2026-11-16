@@ -1,21 +1,21 @@
 # CLI reference
 
-`dpm` does package management. It's a **read-only interface to IPFS**: it reads packages through one Kubo node, on your machine or another, and never adds, pins or deletes anything. Everything else is done with the `ipfs` command ([how DPM uses IPFS](ipfs.md)):
+`dpm` does package management. It's a **read-only interface to IPFS**: it reads packages through the Kubo node running on your machine, and never adds, pins or deletes anything. Everything else is done with the `ipfs` command ([how DPM uses IPFS](ipfs.md)):
 
 | To | Run |
 |---|---|
 | add your project to your node | `ipfs add -r -Q "$(dpm pack)"` |
 | pin a package in your node | `ipfs pin add <cid>` |
 | pin a package and its whole tree | `dpm tree <cid> \| ipfs pin add` |
-| register a DPM server, once | `ipfs pin remote service add <server> <url> <token>` (any token if the server needs none) |
+| register a pinning service, once | `ipfs pin remote service add <server> <url> <token>` (any token if the service needs none) |
 | push a package to a server | `ipfs pin remote add --service=<server> <cid>` |
 | push a package and its whole tree | push each CID `dpm tree <cid>` prints (bash: `dpm tree <cid> \| xargs -n1 ipfs pin remote add --service=<server>`; PowerShell: `dpm tree <cid> \| % { ipfs pin remote add --service=<server> $_ }`) |
 | fetch from a server | `ipfs swarm peering add <the server node's address>` (see below) |
 | get a package's files to work on | `ipfs get <cid> -o <folder>`, then `dpm install` in it |
 
-`dpm` talks to Kubo through Kubo's HTTP API (which Kubo calls its RPC API): `http://127.0.0.1:5001` by default, set with `dpm node --set <url> [--auth <secret>]`, or `DPM_KUBO_API` and `DPM_KUBO_AUTH`. The node can be on another machine, if it requires a secret limited to the read-only commands `dpm` uses; see [ipfs.md](ipfs.md). Point `dpm` only at a node you trust: Kubo, not `dpm`, checks content against its CID. Kubo does all the work of finding, fetching and verifying content; `dpm` only asks it for packages by CID. Settings are in `~/.dpm/client/config.json` (override the folder with `DPM_HOME`).
+**Setup:** run Kubo on your machine, the standard way to use IPFS: `ipfs init --profile=unixfs-v1-2025` once, then `ipfs daemon`, left running. `dpm` and the `ipfs` command both talk to it automatically (at `http://127.0.0.1:5001`), with nothing to configure. For a Kubo set up before, run `ipfs config profile apply unixfs-v1-2025` once.
 
-Start the node first: `ipfs init --profile=unixfs-v1-2025` (once), then `ipfs daemon`. For an existing node, `ipfs config profile apply unixfs-v1-2025`. Everyone using the same import settings means the same files get the same CIDs, so IPFS stores and transfers each file once.
+Kubo does all the work of finding, fetching and verifying content; `dpm` only asks it for packages by CID. (Reading through a Kubo on another machine is possible too, but optional: see [ipfs.md](ipfs.md).) Settings are in `~/.dpm/client/config.json` (override the folder with `DPM_HOME`).
 
 ## Projects
 
@@ -48,31 +48,13 @@ dpm tree <cid> | ipfs pin add             # keep what you checked, with its whol
 
 ## Servers
 
-A DPM server is a standard IPFS pinning service. Kubo talks to it; `dpm` never does.
+A server here is any IPFS pinning service, such as [unilog-server](https://github.com/team-affix/unilog-server), which keeps only packages that check with Unilog. Kubo talks to it; `dpm` never does.
 
-- **Pushing:** register the server once with `ipfs pin remote service add <name> <url> <token>` (any token if the server needs none), then `ipfs pin remote add --service=<name> <cid>`. If the server refuses, the command fails with "remote service failed to pin". You can try another server.
-- **Fetching:** To fetch from a server, your node needs to reach the server's node. `ipfs swarm peering add <address>` connects now and keeps the connection up until Kubo restarts; to keep it permanently, add the server to `Peering.Peers` in Kubo's config. `dpm-server` prints its node's addresses when it starts. Without peering, Kubo can still find packages on the public IPFS network, more slowly.
+- **Pushing:** register the service once with `ipfs pin remote service add <name> <url> <token>` (any token if the service needs none), then `ipfs pin remote add --service=<name> <cid>`. If the service refuses, the command fails with "remote service failed to pin". You can try another one.
+- **Fetching:** your node needs to reach the service's node. `ipfs swarm peering add <address>` connects now and keeps the connection up until Kubo restarts; to keep it permanently, add the service's node to `Peering.Peers` in Kubo's config. Without peering, Kubo can still find packages on the public IPFS network, more slowly.
 
 ## Node
 
 | Command | Description |
 |---|---|
 | `dpm node [--set <url> [--auth <secret>]]` | Show which Kubo `dpm` talks to (its version and URL), or set the URL, and the secret if the node requires one (`bearer:<token>` or `basic:<user>:<password>`, as Kubo writes them) |
-
-## Server
-
-```bash
-DPM_KUBO_API=http://127.0.0.1:5001 PORT=3000 dpm-server
-```
-
-| Variable | Meaning |
-|---|---|
-| `PORT`, `HOST` | Where to listen (default 3000, all interfaces) |
-| `DPM_KUBO_API` | The server's Kubo RPC API. Keep it private. |
-| `DPM_DATA` | Where pin requests are stored (default `~/.dpm/server`) |
-| `DPM_TOKENS` | Comma-separated access tokens. If set, adding or withdrawing pins needs one. |
-| `DPM_ANNOUNCE` | Comma-separated multiaddrs of the server's node, for clients to peer with (default: the node's own) |
-| `DPM_CHECK` | A command run in each installed package; it is kept only if the command succeeds. A Unilog server uses `unilog check`. |
-| `DPM_KEEP_DEPS` | `1`: pin each package's dependencies too. By default only what was pushed is pinned; dependencies are fetched for the check without being pinned, so they stay only as cached data until garbage collection, as with anything a Kubo node fetches. |
-
-Expose the server's port and the Kubo node's peer-to-peer port (4001), never its RPC API (5001). Give the server a Kubo node of its own: after refusing or releasing a package, the server garbage-collects the node so it stops serving that content, which deletes anything unpinned.

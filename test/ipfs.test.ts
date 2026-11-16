@@ -6,8 +6,7 @@ import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { pack, tree } from '../src/client';
 import { install, Kubo, readGraph, writeManifest } from '../src/core';
-import { commandPolicy, KuboAdmin, PinningService, PinStatus } from '../src/server';
-import { hasLocally, IPFS_BIN, readTree, startNode, startServer, tmpDir, writeTree } from './helpers';
+import { hasLocally, IPFS_BIN, readTree, startNode, TestNode, tmpDir, writeTree } from './helpers';
 
 /** A package folder with the given files and dependencies. */
 function project(files: Record<string, string>, deps: string[] = []): string {
@@ -49,42 +48,10 @@ const publish = (dir: string, node: Kubo) => addPacked(dir, node);
 /** The CID a project would have, without adding it anywhere: a package nobody has. */
 const unpublished = (dir: string, node: Kubo) => addPacked(dir, node, '--only-hash');
 
-/** A DPM server, as a user's Kubo knows it: a name for pushing, and its node's addresses for fetching. */
-interface Server {
-    name: string;
-    url: string;
-    delegates: readonly string[];
+/** What a user runs to fetch from another node: ipfs swarm peering add <its address>. */
+async function peer(node: TestNode, other: TestNode): Promise<void> {
+    await ipfs(node, 'swarm', 'peering', 'add', ...(await other.id()).addresses);
 }
-
-/** What a user runs to push a CID to a server: ipfs pin remote add --service=<server> <cid>. */
-async function push(node: Kubo, server: Pick<Server, 'name' | 'url'>, cid: string, token = 'none'): Promise<string> {
-    const services = await ipfs(node, 'pin', 'remote', 'service', 'ls');
-    if (!services.split('\n').some((l) => l.startsWith(`${server.name} `)))
-        await ipfs(node, 'pin', 'remote', 'service', 'add', server.name, server.url, token);
-    return ipfs(node, 'pin', 'remote', 'add', `--service=${server.name}`, cid);
-}
-
-/** dpm tree <cid>, then ipfs pin remote add --service=<server> for each CID. */
-async function pushTree(node: Kubo, server: Server, cid: string): Promise<void> {
-    for (const c of await tree(cid, node)) await push(node, server, c);
-}
-
-/** What a user runs to fetch from a server: ipfs swarm peering add <the server node's addresses>. */
-const peer = (node: Kubo, server: Server) => ipfs(node, 'swarm', 'peering', 'add', ...server.delegates);
-
-/** A server's recorded decision on a CID, from its Pinning Service API. */
-async function decision(server: Server, cid: string): Promise<PinStatus | undefined> {
-    const [s] = await new PinningService(server.url).list({ cid: [cid], status: ['pinned', 'failed'] });
-    return s;
-}
-
-/** Starts a DPM server in front of `kubo`, named `home`. */
-async function homeServer(opts: Parameters<typeof startServer>[0]): Promise<Server & { idle(): Promise<void> }> {
-    const { url, server } = await startServer(opts);
-    return { name: 'home', url, delegates: server.delegates, idle: () => server.idle() };
-}
-
-const REFUSED = /remote service failed to pin/;
 
 describe('dpm pack', () => {
     const MANIFEST_TEXT = '{\n    "deps": []\n}\n';
@@ -158,31 +125,20 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
         });
     });
 
-    describe('push and install', () => {
-        /** Three nodes: the author's, a server's, and a reader's that starts empty. */
+    describe('install', () => {
+        /** Two nodes: an author's, and a reader's that starts empty and is connected to the author's. */
         async function world() {
-            const [author, serverNode, reader] = await Promise.all([startNode(), startNode(), startNode()]);
-            const home = await homeServer({ kubo: serverNode });
-            await peer(reader, home);
-            return { author, serverNode, reader, home };
+            const [author, reader] = await Promise.all([startNode(), startNode()]);
+            await peer(reader, author);
+            return { author, reader };
         }
 
-        it('pushes with ipfs pin remote add: the server fetches from the author over IPFS', async () => {
-            const { author, serverNode, home } = await world();
-            const cid = await publish(project({ 'Kant/Ethics.ul': 'duty' }), author);
-            expect(await push(author, home, cid)).toMatch(/Status: pinned/);
-            expect(await serverNode.pins()).toContain(cid);
-        });
-
-        it('installs the whole tree into flat deps/<cid>/ folders, each package once, from the server', async () => {
-            const { author, home, reader } = await world();
+        it('installs the whole tree into flat deps/<cid>/ folders, each package once', async () => {
+            const { author, reader } = await world();
             const base = await publish(project({ 'Kant/Ethics.ul': 'duty' }), author);
             // A diamond: alice and bob both depend on base.
             const alice = await publish(project({ 'Alice/Beliefs.ul': 'a' }, [base]), author);
             const bob = await publish(project({ 'Bob/Beliefs.ul': 'b' }, [base]), author);
-            // Each pushed with its tree, so the server keeps base too.
-            await pushTree(author, home, alice);
-            await pushTree(author, home, bob);
 
             const app = project({}, [alice, bob]);
             const graph = await install(app, reader);
@@ -197,10 +153,9 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
         });
 
         it('installs without pinning; the user pins what they decide to keep with ipfs pin add', async () => {
-            const { author, home, reader } = await world();
+            const { author, reader } = await world();
             const base = await publish(project({ 'Kant/Ethics.ul': 'duty' }), author);
             const alice = await publish(project({ 'Alice/Beliefs.ul': 'a' }, [base]), author);
-            await pushTree(author, home, alice);
             await install(project({}, [alice]), reader);
             // Installed, and cached in the node, but not pinned.
             expect(await hasLocally(reader, alice)).toBe(true);
@@ -216,11 +171,9 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
         });
 
         it('removes packages no longer needed when reinstalling', async () => {
-            const { author, home, reader } = await world();
+            const { author, reader } = await world();
             const base = await publish(project({ 'Kant/Ethics.ul': 'duty' }), author);
             const other = await publish(project({ 'Other/X.ul': 'x' }), author);
-            await push(author, home, base);
-            await push(author, home, other);
             const app = project({}, [base, other]);
             await install(app, reader);
             writeManifest(app, { deps: [base] });
@@ -235,16 +188,16 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             await expect(install(project({}, [missing]), reader)).rejects.toThrow(`Could not fetch ${missing}`);
         });
 
-        it('a server refuses a package whose tree cannot be completed', async () => {
-            const { author, serverNode, home } = await world();
+        it('fails, naming the package, when the tree cannot be completed, and installs nothing', async () => {
+            const { author, reader } = await world();
             const missing = await unpublished(project({ 'Nowhere/X.ul': 'gone' }), author);
             const present = await publish(project({ 'Kant/Ethics.ul': 'duty' }, [missing]), author);
-            await expect(push(author, home, present)).rejects.toThrow(REFUSED);
-            const s = await decision(home, present);
-            expect(s?.status).toBe('failed');
-            expect(s?.info?.reason).toContain(`Could not fetch ${missing}`);
-            expect(await serverNode.pins()).not.toContain(present);
-        }, 120_000);
+            const app = project({}, [present]);
+            // Get the package that exists first, so the short timeout below is only spent on the missing one.
+            await reader.fetch(present);
+            await expect(install(app, new Kubo(reader.api, '2s'))).rejects.toThrow(`Could not fetch ${missing}`);
+            expect(fs.existsSync(path.join(app, 'deps'))).toBe(false);
+        });
     });
 
     describe('reading through a Kubo that requires a secret (e.g. on another machine)', () => {
@@ -271,117 +224,10 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
             expect(readTree(path.join(dir, 'deps'))).toMatchObject({ [`${base}/Kant/Ethics.ul`]: 'duty' });
 
             // The same token can't change anything, and no token gets nothing.
-            const readerAsAdmin = new KuboAdmin(node.api, '20s', 'bearer:read-only');
+            const readerAsAdmin = new TestNode(node.api, '20s', 'bearer:read-only');
             await expect(readerAsAdmin.pin(app)).rejects.toThrow(/Access Denied/);
             await expect(readerAsAdmin.gc()).rejects.toThrow(/Access Denied/);
             await expect(new Kubo(node.api, '20s').version()).rejects.toThrow(/Access Denied/);
-        });
-    });
-
-    describe('server policy', () => {
-        it('keeps a package only if its check command succeeds, and says why it refused', async () => {
-            const [author, serverNode] = await Promise.all([startNode(), startNode()]);
-            // The check: every package must contain a README.
-            const home = await homeServer({ kubo: serverNode, policy: commandPolicy('test -f README') });
-
-            const good = await publish(project({ README: 'hi', 'Kant/Ethics.ul': 'duty' }), author);
-            const bad = await publish(project({ 'Kant/Ethics.ul': 'duty' }), author);
-            expect(await push(author, home, good)).toMatch(/Status: pinned/);
-            await expect(push(author, home, bad)).rejects.toThrow(REFUSED);
-            // The server records why; the ipfs command reports only that it refused.
-            const refused = await decision(home, bad);
-            expect(refused?.status).toBe('failed');
-            expect(refused?.info?.reason).toMatch(/'test -f README' failed/);
-            const pins = await serverNode.pins();
-            expect(pins).toContain(good);
-            expect(pins).not.toContain(bad);
-        });
-
-        it('deletes what it refused, so its node stops serving it', async () => {
-            const [author, serverNode] = await Promise.all([startNode(), startNode()]);
-            const { url, server } = await startServer({ kubo: serverNode, policy: async () => 'refused' });
-            const cid = await publish(project({ 'Kant/Ethics.ul': 'duty' }), author);
-            await expect(push(author, { name: 'home', url }, cid)).rejects.toThrow(REFUSED);
-            await server.idle();
-            expect(await hasLocally(serverNode, cid)).toBe(false);
-        });
-
-        it('runs the check with dependencies installed, so it can look at the whole tree', async () => {
-            const [author, serverNode] = await Promise.all([startNode(), startNode()]);
-            const { url, server } = await startServer({
-                kubo: serverNode,
-                // The check can see the dependency's files under deps/.
-                policy: commandPolicy('ls deps/*/Kant/Ethics.ul'),
-            });
-            const base = await publish(project({ 'Kant/Ethics.ul': 'duty' }), author);
-            const app = await publish(project({ 'App/Main.ul': 'm' }, [base]), author);
-            expect(await push(author, { name: 'home', url }, app)).toMatch(/Status: pinned/);
-            // By default it pins only what was pushed. The dependency was fetched for the check and isn't pinned:
-            // like any data a Kubo node fetches, it stays cached until garbage collection.
-            await server.idle();
-            expect(await serverNode.pins()).toContain(app);
-            expect(await serverNode.pins()).not.toContain(base);
-        });
-
-        it('keeps dependencies too when configured to', async () => {
-            const [author, serverNode] = await Promise.all([startNode(), startNode()]);
-            const { url } = await startServer({ kubo: serverNode, keepDependencies: true });
-            const base = await publish(project({ 'Kant/Ethics.ul': 'duty' }), author);
-            const app = await publish(project({ 'App/Main.ul': 'm' }, [base]), author);
-            await push(author, { name: 'home', url }, app);
-            expect(await serverNode.pins()).toEqual(expect.arrayContaining([app, base]));
-        });
-    });
-
-    describe('server API (IPFS Pinning Service API)', () => {
-        it('requires a token to add or remove pins when tokens are set; reading is open', async () => {
-            const [author, serverNode] = await Promise.all([startNode(), startNode()]);
-            const { url } = await startServer({ kubo: serverNode, tokens: ['secret'] });
-            const cid = await publish(project({ 'A/x.ul': 'x' }), author);
-            await expect(new PinningService(url).add({ cid })).rejects.toThrow(/401/);
-            await expect(new PinningService(url, 'wrong').add({ cid })).rejects.toThrow(/401/);
-            expect(await push(author, { name: 'home', url }, cid, 'secret')).toMatch(/Status: pinned/);
-            expect((await new PinningService(url).list({ cid: [cid] })).map((s) => s.pin.cid)).toEqual([cid]);
-        });
-
-        it('lists requests by CID and state, and releases what a removed request held', async () => {
-            const [author, serverNode] = await Promise.all([startNode(), startNode()]);
-            const { url, server } = await startServer({ kubo: serverNode });
-            const api = new PinningService(url);
-            const base = await publish(project({ 'Kant/Ethics.ul': 'duty' }), author);
-            const app = await publish(project({ 'App/Main.ul': 'm' }, [base]), author);
-            const home = { name: 'home', url };
-            await push(author, home, app);
-            await push(author, home, base);
-            const [first] = await api.list({ cid: [app] });
-            const [second] = await api.list({ cid: [base] });
-            expect(await api.list({ status: ['failed'] })).toEqual([]);
-
-            // Removing the request for app releases app, but not base: another request still holds it.
-            await api.remove(first?.requestid as string);
-            const pins = await serverNode.pins();
-            expect(pins).not.toContain(app);
-            expect(pins).toContain(base);
-            await api.remove(second?.requestid as string);
-            expect(await serverNode.pins()).not.toContain(base);
-            // ...and deletes it, so the node stops serving it.
-            await server.idle();
-            expect(await hasLocally(serverNode, base)).toBe(false);
-        });
-
-        it("answers nothing of Kubo's RPC API, which stays private", async () => {
-            const { url } = await startServer({ kubo: await startNode() });
-            for (const command of ['pin/ls', 'id', 'version', 'pin/rm', 'pin/add', 'repo/gc', 'config', 'shutdown']) {
-                const res = await fetch(`${url}/api/v0/${command}`, { method: 'POST' });
-                expect(res.status).toBe(404);
-            }
-        });
-
-        it('rejects a request that is not for a CID', async () => {
-            const { url } = await startServer({ kubo: await startNode() });
-            await expect(new PinningService(url).add({ cid: 'Kant@123' })).rejects.toThrow(
-                /400 BAD_REQUEST: Not a CID/,
-            );
         });
     });
 });

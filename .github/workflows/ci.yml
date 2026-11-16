@@ -42,7 +42,7 @@ jobs:
           DPM_REQUIRE_IPFS: '1'
       - run: npm run build
 
-  # Publishes a GitHub Release with dpm and dpm-server, after the tests pass. Runs when:
+  # Publishes a GitHub Release with dpm, after the tests pass. Runs when:
   # - main is pushed (e.g. a PR is merged) and its package version has no release yet: tags that commit
   #   v<version> and releases it. If that version is already released, it does nothing.
   # - a v* tag is pushed by hand: releases that tag, if it matches the package version.
@@ -79,14 +79,13 @@ jobs:
             echo "release=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build dpm and dpm-server as single files
+      - name: Build dpm as a single file
         if: steps.decide.outputs.release == 'true'
         run: |
           npm ci
           npm run bundle
           mkdir -p dist-release
           cp release/dpm.cjs "dist-release/dpm-$VERSION.cjs"
-          cp release/dpm-server.cjs "dist-release/dpm-server-$VERSION.cjs"
           node "dist-release/dpm-$VERSION.cjs" --version
 
       - name: Build the npm package
