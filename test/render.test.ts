@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { boxed, renderFlat, renderTree } from '../src/client';
 import { Graph } from '../src/core';
 
-describe('drawing trees, as APM did', () => {
+describe('drawing trees', () => {
     it('boxes text', () => {
         expect(boxed('abc')).toBe('┌─────┐\n│ abc │\n└─────┘');
     });

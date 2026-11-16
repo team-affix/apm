@@ -17,7 +17,7 @@ DPM is the storage layer of a logic platform for public discourse (see [docs/phi
 Requires Node.js 20+ and [Kubo](https://github.com/ipfs/kubo/releases), the standard IPFS node (download the `kubo_<version>_<platform>` archive from its GitHub releases; `dist.ipfs.tech` no longer answers since its operator, Shipyard, wound down). Install the latest release of the npm package (run it again to upgrade); it provides `dpm`:
 
 ```bash
-npm install -g https://github.com/team-affix/apm/releases/latest/download/dpm.tgz
+npm install -g https://github.com/team-affix/dpm/releases/latest/download/dpm.tgz
 ipfs init --profile=unixfs-v1-2025     # once (existing node: ipfs config profile apply unixfs-v1-2025)
 ipfs daemon                             # leave it running: dpm and the ipfs command both use it
 ```
@@ -56,14 +56,14 @@ import { pack, tree } from '@team-affix/dpm/client';
 
 ## Releases
 
-Built files are never committed. They are attached to [GitHub Releases](https://github.com/team-affix/apm/releases) by CI:
+Built files are never committed. They are attached to [GitHub Releases](https://github.com/team-affix/dpm/releases) by CI:
 
 | File | What it is |
 |---|---|
 | `dpm-<version>.cjs` | the client as a single file: `node dpm-<version>.cjs install` |
 | `team-affix-dpm-<version>.tgz` | the npm package (the command and the library): `npm i -g ./team-affix-dpm-<version>.tgz` |
 
-Each release also has the same files without the version in their names (`dpm.cjs`, `dpm.tgz`), so `https://github.com/team-affix/apm/releases/latest/download/<name>` always gets the newest.
+Each release also has the same files without the version in their names (`dpm.cjs`, `dpm.tgz`), so `https://github.com/team-affix/dpm/releases/latest/download/<name>` always gets the newest.
 
 To release: set a new version in `package.json` and merge to `main`. After the tests pass, CI tags the merge commit `v<version>` and publishes the release. Merges that don't change the version publish nothing. (Pushing a matching `v*` tag by hand also releases.)
 

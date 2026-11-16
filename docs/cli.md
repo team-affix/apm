@@ -20,7 +20,7 @@ Kubo does all the work of finding, fetching and verifying content; `dpm` only as
 
 ## Commands
 
-Commands are grouped by what they act on, as in APM:
+Commands are grouped by what they act on:
 
 - **`dpm project <command>`**: the project in the current directory, or the one given with `-C <dir>`. A project is a folder with a `dpm.json` (`{ "deps": [CID, ...] }`); the folder is a DPM package because it has one. Installed dependencies go in `deps/<cid>/`, each with its own `dpm.json`.
 - **`dpm project dep <command>`**: the project's direct dependencies, the CIDs listed in its `dpm.json`.
@@ -40,7 +40,7 @@ Every `dpm project` command has a shorthand without `project`: `dpm install` is 
 | `dpm project tree [--flat]` | `dpm tree` | Draw the installed dependency tree, read from the `dpm.json` files in `deps/`. With `--flat`: every installed package once, one CID per line, for piping. |
 | `dpm package tree <cid> [--flat] [--timeout 120s]` | | Draw the package and every package it depends on, recursively, fetched through Kubo (not pinned). With `--flat`: each once, one CID per line, for piping. Everything is fetched before anything is printed, so if the tree can't be completed, nothing is printed. |
 
-A tree is drawn as APM drew them: each package is a box with its CID, and its dependencies hang below it. A package that several others depend on appears under each of them.
+A tree is drawn as boxes: each package is a box with its CID, and its dependencies hang below it. A package that several others depend on appears under each of them.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
