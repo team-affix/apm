@@ -57,8 +57,8 @@ export const projectCommands = {
     pack: () =>
         new Command('pack')
             .description(
-                "Add the project's package to your Kubo, which pins it, and print its CID: everything except deps/ " +
-                    'and hidden files. Push it with: ipfs pin remote add --service=<server> "$(dpm pack)"',
+                "Create the project's package (the project folder without deps/ and hidden files), add it to your Kubo " +
+                    '(pinned), and print its CID. Push it with: ipfs pin remote add --service=<server> "$(dpm pack)"',
             )
             .action(run(async (dir) => console.log(await pack(dir, ClientConfig.load().kubo())))),
 

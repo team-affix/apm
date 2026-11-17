@@ -19,16 +19,16 @@ async function showSaved(config: ClientConfig) {
     }
 }
 
-/** `dpm node ...`: which Kubo dpm reads through. */
+/** `dpm node ...`: which Kubo dpm talks to. */
 export function nodeCommand(): Command {
     const node = new Command('node').description(
-        'Which Kubo dpm reads through: by default the one running on this machine (http://127.0.0.1:5001)',
+        'Which Kubo dpm talks to: by default the one running on this machine (http://127.0.0.1:5001)',
     );
     node.command('show', { isDefault: true })
-        .description('Show which Kubo dpm reads through, and its version (the default for `dpm node`)')
+        .description('Show which Kubo dpm talks to, and its version (the default for `dpm node`)')
         .action(run(() => showNode(ClientConfig.load())));
     node.command('set')
-        .description('Set the URL of the Kubo HTTP API dpm reads through, and its secret if it requires one')
+        .description('Set the URL of the Kubo HTTP API dpm talks to, and its secret if it requires one')
         .argument('<url>', "the Kubo node's HTTP API, e.g. http://192.168.0.5:5001")
         .argument('[secret]', 'the secret, as Kubo writes them: bearer:<token> or basic:<user>:<password>')
         .action(

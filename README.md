@@ -6,7 +6,7 @@ DPM is a thin layer over [IPFS](https://ipfs.tech) for packages that depend on e
 - A package's `dpm.json` lists the packages it depends on, **by CID only**, never by location. Any IPFS node holding the content is as good a source as any other, and every block is checked against its CID.
 - `dpm install` fetches the whole tree and lays it out **flat**, as `deps/<cid>/`, each package once. Since a CID fixes its entire dependency tree, there is nothing to resolve: DPM has no names, no overrides and no conflicts. What packages mean, and what to do when two of them clash, is left to the tools that use them.
 - **Sharing is plain IPFS.** To keep a package online, push it to any IPFS pinning service with Kubo's own `ipfs pin remote add`. Pushing never uploads anything: you send the CID, and the service's IPFS node fetches it from yours. A service decides what it keeps: [unilog-server](https://github.com/team-affix/unilog-server) keeps only packages that check with Unilog.
-- **`dpm` talks to one Kubo node**, normally the one running on your machine, and Kubo does all the networking. `dpm pack` adds your package to that node; everything else `dpm` does only reads. Pinning other packages, pushing to servers and connecting to them are done with the `ipfs` command. See [how DPM uses IPFS](docs/ipfs.md).
+- **`dpm` talks to one Kubo node**, normally the one running on your machine, and Kubo does all the networking. `dpm pack` creates your package and adds it to that node; everything else `dpm` does only reads. Pinning other packages, pushing to servers and connecting to them are done with the `ipfs` command. See [how DPM uses IPFS](docs/ipfs.md).
 
 **DPM is a protocol** ([spec](docs/protocol.md)): the package format and the install rules. Everything else is IPFS. Checking content is the job of the content's own tools, and of whichever services choose to check before keeping.
 
@@ -33,7 +33,7 @@ ipfs swarm peering add <the service node's address>            # fetch from it
 mkdir base && cd base
 dpm init
 mkdir Kant && echo "duty : \X. good X => ought X;" > Kant/Ethics.ul
-BASE=$(dpm pack)                              # add it to your node (pinned), and get its CID
+BASE=$(dpm pack)                              # create the package, add it to your node, get its CID
 ipfs pin remote add --service=home $BASE      # push it: the service fetches it from your node
 
 # depend on it

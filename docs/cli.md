@@ -1,10 +1,10 @@
 # CLI reference
 
-`dpm` does package management through the Kubo node running on your machine ([how DPM uses IPFS](ipfs.md)). `dpm pack` adds your package to it; everything else `dpm` does only reads. The rest is done with the `ipfs` command:
+`dpm` does package management through the Kubo node running on your machine ([how DPM uses IPFS](ipfs.md)). `dpm pack` creates your package and adds it there; everything else `dpm` does only reads. The rest is done with the `ipfs` command:
 
 | To | Run |
 |---|---|
-| add your project to your node, pinned, and get its CID | `dpm pack` |
+| create your project's package, add it to your node, and get its CID | `dpm pack` |
 | pin a package in your node | `ipfs pin add <cid>` |
 | pin a package and its whole tree | `dpm package tree <cid> --flat \| ipfs pin add` |
 | pin everything your project installed | `dpm tree --flat \| ipfs pin add` |
@@ -25,7 +25,7 @@ Commands are grouped by what they act on:
 - **`dpm project <command>`**: the project in the current directory, or the one given with `-C <dir>`. A project is a folder with a `dpm.json` (`{ "deps": [CID, ...] }`); the folder is a DPM package because it has one. Installed dependencies go in `deps/<cid>/`, each with its own `dpm.json`.
 - **`dpm project dep <command>`**: the project's direct dependencies, the CIDs listed in its `dpm.json`.
 - **`dpm package <command>`**: a package, by CID, read through Kubo. No project needed.
-- **`dpm node <command>`**: which Kubo `dpm` reads through.
+- **`dpm node <command>`**: which Kubo `dpm` talks to.
 
 Every `dpm project` command has a shorthand without `project`: `dpm install` is `dpm project install`, `dpm tree` is `dpm project tree`, and `dpm dep` is `dpm project dep`, with all its subcommands (`dpm dep add`).
 
@@ -34,7 +34,7 @@ Every `dpm project` command has a shorthand without `project`: `dpm install` is 
 | `dpm project init` | `dpm init` | Create `dpm.json` |
 | `dpm project install [--timeout 120s]` | `dpm install` | Fetch every dependency into `deps/<cid>/`. Your node fetches each package from whichever node has it. Nothing is pinned: fetched packages are cached like anything your node downloads. |
 | `dpm project clean` | `dpm clean` | Delete the project's `deps/` folder: everything `dpm install` wrote. Nothing in IPFS is touched, and `dpm install` brings it all back. Refuses a folder without `dpm.json`. |
-| `dpm project pack` | `dpm pack` | Add the project's package (everything except `deps/` and hidden files) to your Kubo, which pins it, and print its CID. The same files always get the same CID, whatever your Kubo's settings. |
+| `dpm project pack` | `dpm pack` | Create the project's package (the project folder without `deps/` and hidden files), add it to your Kubo (pinned), and print its CID. The same files always get the same CID, whatever your Kubo's settings. |
 | `dpm project dep add <cid...>` | `dpm dep add` | Add direct dependencies to `dpm.json` |
 | `dpm project dep rm <cid...>` | `dpm dep rm` | Remove direct dependencies from `dpm.json` |
 | `dpm project dep ls` | `dpm dep ls` | List the direct dependencies only, one CID per line, from `dpm.json`. Needs no install and no Kubo. |
