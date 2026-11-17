@@ -19,7 +19,7 @@ DPM is a thin layer over IPFS. It has three parts:
 
 `dpm` and the `ipfs` command both talk to the user's Kubo node through its private HTTP API. Content moves only between Kubo nodes, over IPFS, checked block by block against its CID.
 
-**`dpm` talks to one Kubo node, and Kubo does all the networking.** That node is normally the one running on the user's machine. `dpm` uses five of its commands: `add` for `dpm pack`, and four that only read ([ipfs.md](ipfs.md) has the details). The dividing line: anything that works the same for any IPFS content is done by Kubo's `ipfs` command (pinning other packages, pushing to a server, connecting to a server's node, getting a folder by CID). Anything that needs to know what a DPM package is, is done by `dpm`: adding a package with exactly the files that make it up (`dpm pack`), which CIDs make up its tree (`dpm package tree`), installing a project's dependencies (`dpm install`), and editing `dpm.json`.
+**`dpm` talks to one Kubo node, and Kubo does all the networking.** That node is normally the one running on the user's machine. `dpm` uses five of its commands: `add` for `dpm pack`, and four that only read ([ipfs.md](ipfs.md) has the details). The dividing line: anything that works the same for any IPFS content is done by Kubo's `ipfs` command (pinning other packages, pushing to a server, connecting to a server's node, getting a folder by CID). Anything that needs to know what a DPM package is, is done by `dpm`: creating a package from exactly the files that make it up (`dpm pack`), which CIDs make up its tree (`dpm package tree`), installing a project's dependencies (`dpm install`), and editing `dpm.json`.
 
 ## What DPM does, and what it leaves to others
 
@@ -41,4 +41,4 @@ DPM has no package names, so it has no name conflicts, no overrides and no resol
 
 `@team-affix/dpm/client` has `pack`, `tree` and `ClientConfig`.
 
-The `Kubo` client can only read. A program that needs more of Kubo's API (e.g. a server pinning what it accepts, like unilog-server) extends it with a subclass of its own: `call` and `json` are protected for that.
+The `Kubo` client sends only those five requests. A program that needs more of Kubo's API (e.g. a server pinning what it accepts, like unilog-server) extends it with a subclass of its own: `call` and `json` are protected for that.

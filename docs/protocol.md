@@ -39,7 +39,7 @@ DPM never interprets content. What the packages mean, and what to do if two of t
 
 DPM defines no server and no API of its own. Packages are shared the way any IPFS content is:
 
-- **Publishing** is adding the package's folder to an IPFS node (`dpm pack`). Anyone who can reach that node, or any other node holding the content, can fetch it by CID.
+- **Publishing** is adding the package's folder to an IPFS node (`dpm pack` creates the package and adds it). Anyone who can reach that node, or any other node holding the content, can fetch it by CID.
 - **Keeping packages available** is pinning them on nodes that stay online. A user can ask any **IPFS pinning service** to keep a package, with Kubo's own `ipfs pin remote add --service=<service> <cid>`. Nothing is uploaded: the service's node fetches the package over IPFS from the user's node.
 - **Fetching** works from any node that has the package. To fetch from a particular service reliably, a client keeps its node connected to the service's node (Kubo's peering).
 
@@ -49,6 +49,6 @@ What a service chooses to keep is its own policy. A service may check packages b
 
 ## 4. Nodes
 
-A node may be shared with other applications. DPM adds nothing to a node: pins carry no DPM-specific name or label, and a package is recognised only by its content (a `dpm.json` at the top level).
+A node may be shared with other applications. Pins carry no DPM-specific name or label, and a package is recognised only by its content (a `dpm.json` at the top level).
 
 A node's RPC API is its private admin interface and MUST NOT be exposed as it is (see [ipfs.md](ipfs.md) for giving `dpm` limited access to a node on another machine). Nodes reach each other through IPFS's own peer-to-peer port.

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { ClientConfig } from '../src/client';
 import { tmpDir } from './helpers';
 
-describe('which Kubo dpm reads through (dpm node set / reset)', () => {
+describe('which Kubo dpm talks to (dpm node set / reset)', () => {
     const load = (home: string) => ClientConfig.load(home);
 
     it('defaults to the Kubo on this machine', () => {

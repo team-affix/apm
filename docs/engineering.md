@@ -14,7 +14,7 @@ anyone who asks. So:
   - A server that checks packages (e.g. unilog-server) fetches a pushed package's whole tree *without pinning*,
     checks it, and pins only if the package passes. A refused package was never pinned, so there is nothing to
     undo, and no chance that a failed undo leaves invalid content hosted.
-  - `dpm pack` adds and pins your own package: by packing it, you've decided to publish it. Apart from that,
+  - `dpm pack` creates your own package, then adds and pins it: by packing it, you've decided to publish it. Apart from that,
     `dpm` never pins or changes what a node keeps. `dpm install` fetches. The user checks what was installed
     (e.g. `unilog check`), then decides to keep it with `ipfs pin add <cid>`, or its whole tree with
     `dpm package tree <cid> --flat | ipfs pin add`. That fetches the whole tree before printing anything, so a

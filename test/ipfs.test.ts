@@ -49,7 +49,7 @@ describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 
     if (!IPFS_BIN) it.skip('needs the ipfs binary: set IPFS_BIN or put Kubo on the PATH', () => undefined);
 
     describe('dpm pack', () => {
-        it('adds the package to Kubo, which pins it, and returns its CID', async () => {
+        it('creates the package, adds it to Kubo (pinned), and returns its CID', async () => {
             const kubo = await startNode();
             const cid = await pack(project({ 'Kant/Ethics.ul': 'duty' }), kubo);
             expect(cid).toMatch(/^bafy/);

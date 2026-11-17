@@ -33,8 +33,8 @@ export const depCommands = {
     ls: () =>
         new Command('ls')
             .description(
-                "List the project's direct dependencies, one CID per line, from its dpm.json (only those it lists " +
-                    'itself; the whole installed tree is dpm tree)',
+                "List the project's direct dependencies (the CIDs in its dpm.json), one per line. For the whole tree: " +
+                    'dpm tree',
             )
             .action(
                 run((dir) => {
@@ -45,7 +45,7 @@ export const depCommands = {
 
 /** The `dep` group: one of the project commands, so `dpm dep` is its shorthand like any other (see project.ts). */
 export function depCommand(): Command {
-    const dep = new Command('dep').description("The project's direct dependencies, listed in its dpm.json");
+    const dep = new Command('dep').description("The project's direct dependencies: the CIDs in its dpm.json");
     for (const make of Object.values(depCommands)) dep.addCommand(make());
     return dep;
 }

@@ -1,6 +1,6 @@
 # How DPM uses IPFS
 
-**DPM talks to one Kubo node, and Kubo does everything to do with the network.** `dpm pack` adds your package to that node; everything else `dpm` does only reads.
+**DPM talks to one Kubo node, and Kubo does everything to do with the network.** `dpm pack` creates your package and adds it to that node; everything else `dpm` does only reads.
 
 ## The standard setup: Kubo running on your machine
 
@@ -21,7 +21,7 @@ DPM talks to Kubo over Kubo's HTTP API (Kubo calls it its "RPC API", but it's pl
 
 | Command | What for |
 |---|---|
-| `/api/v0/add` | `dpm pack`: add the project's package, which Kubo pins. DPM sends fixed import settings with it (Kubo's `unixfs-v1-2025`: CIDv1, raw leaves, 1 MiB chunks, SHA-256), so the same files get the same CID on every node, however that node is configured. |
+| `/api/v0/add` | `dpm pack`: add the package it creates from the project (Kubo pins it). DPM sends fixed import settings with it (Kubo's `unixfs-v1-2025`: CIDv1, raw leaves, 1 MiB chunks, SHA-256), so the same files get the same CID on every node, however that node is configured. |
 | `/api/v0/cat` | read one file of a package: its `dpm.json` |
 | `/api/v0/refs` | fetch a whole package, so every block of it is available |
 | `/api/v0/get` | download a package's folder, as a tar stream that DPM unpacks into `deps/<cid>/` |
@@ -34,7 +34,7 @@ That's everything `dpm pack`, `dpm install`, `dpm package tree` and `dpm node` n
 The dividing line:
 
 - **If a job works the same for any IPFS content, the `ipfs` command does it.** That covers pinning, pushing to a server, connecting to other nodes, and getting a folder by CID.
-- **If a job needs to know what a DPM package is, `dpm` does it.** That covers adding a package with exactly the files that make it up (`dpm pack`), which CIDs make up its tree (`dpm package tree`), installing a project's dependencies (`dpm install`), and editing `dpm.json`.
+- **If a job needs to know what a DPM package is, `dpm` does it.** That covers creating a package from exactly the files that make it up (`dpm pack`), which CIDs make up its tree (`dpm package tree`), installing a project's dependencies (`dpm install`), and editing `dpm.json`.
 
 To move a package without a network between the two machines, export its blocks to one file, and import it on the other: `ipfs dag export <cid> > package.car`, then `ipfs dag import package.car`. It arrives with the same CID, checked block by block. (`ipfs get <cid> -o <folder>` gives you its files, to look at or work on.)
 

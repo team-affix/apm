@@ -1,8 +1,8 @@
 import { fetchTree, Kubo, readManifest, readPackageFolder } from '../core';
 
 /**
- * Adds the project's package to Kubo, which pins it, and returns its CID: everything in the project folder except
- * `deps/` and hidden files (names starting with `.`). The project must have a dpm.json.
+ * Creates the project's package, adds it to Kubo (which pins it) and returns its CID. The package is the project
+ * folder without `deps/` and hidden files (names starting with `.`). The project must have a dpm.json.
  */
 export async function pack(dir: string, kubo: Kubo): Promise<string> {
     readManifest(dir);

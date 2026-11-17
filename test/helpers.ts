@@ -44,7 +44,7 @@ export function readTree(dir: string): Record<string, string> {
 // --- Real IPFS nodes (Kubo), for end-to-end tests ---
 
 /**
- * A test's view of a node: the read-only `Kubo` client dpm uses, plus what tests need to set nodes up and look at
+ * A test's view of a node: the `Kubo` client dpm uses, plus what tests need to set nodes up and look at
  * them (dpm itself never does any of this; users do it with the ipfs command).
  */
 export class TestNode extends Kubo {

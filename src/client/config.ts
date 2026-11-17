@@ -12,8 +12,8 @@ interface ConfigFile {
 
 /**
  * The client's configuration: `$DPM_HOME/config.json`, by default `~/.dpm/client/config.json`: which Kubo node
- * dpm reads through (its HTTP API URL, and a secret if it requires one). `dpm` talks only to that node, and only
- * reads; where the node is doesn't matter.
+ * dpm talks to (its HTTP API URL, and a secret if it requires one). `dpm` talks only to that node; where the node
+ * is doesn't matter.
  */
 export class ClientConfig {
     private constructor(
@@ -33,7 +33,7 @@ export class ClientConfig {
     }
 
     /**
-     * The Kubo node dpm reads through, on this machine or another: `$DPM_KUBO_API`, else the configured one,
+     * The Kubo node dpm talks to, on this machine or another: `$DPM_KUBO_API`, else the configured one,
      * else http://127.0.0.1:5001. Its secret: `$DPM_KUBO_AUTH`, else the configured one.
      */
     kubo(timeout?: string): Kubo {
