@@ -32,7 +32,7 @@ Every `dpm project` command has a shorthand without `project`: `dpm install` is 
 | Command | Shorthand | Description |
 |---|---|---|
 | `dpm project init` | `dpm init` | Create `dpm.json` |
-| `dpm project install [--timeout 120s]` | `dpm install` | Fetch every dependency into `deps/<cid>/`. Your node fetches each package from whichever node has it. Nothing is pinned: fetched packages are cached like anything your node downloads. |
+| `dpm project install [--timeout 120s]` | `dpm install` | Fetch the whole dependency tree into `deps/<cid>/`, each package once. Your node fetches each package from whichever node has it. Nothing is pinned: fetched packages are cached like anything your node downloads. |
 | `dpm project clean` | `dpm clean` | Delete the project's `deps/` folder: everything `dpm install` wrote. Nothing in IPFS is touched, and `dpm install` brings it all back. Refuses a folder without `dpm.json`. |
 | `dpm project pack` | `dpm pack` | Create the project's package (the project folder without `deps/` and hidden files), add it to your Kubo (pinned), and print its CID. The same files always get the same CID, whatever your Kubo's settings. |
 | `dpm project dep add <cid...>` | `dpm dep add` | Add direct dependencies to `dpm.json` |

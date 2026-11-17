@@ -29,7 +29,7 @@ export function program(): Command {
         .name('dpm')
         .version(VERSION)
         .description(
-            'Distributed Package Manager: folders identified by their IPFS CID, depending on each other by CID',
+            'Distributed Package Manager: packages are folders identified by their IPFS CID, depending on each other by CID',
         )
         .option('-C, --dir <dir>', 'the project directory', '.');
 

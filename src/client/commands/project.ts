@@ -16,7 +16,7 @@ import { run, TIMEOUT } from './run';
  */
 export const projectCommands = {
     init: () =>
-        new Command('init').description('Make the project directory a DPM package: create its dpm.json').action(
+        new Command('init').description('Make the directory a DPM project: create its dpm.json').action(
             run((dir) => {
                 if (fs.existsSync(path.join(dir, MANIFEST))) throw new DpmError(`${MANIFEST} already exists`);
                 writeManifest(dir, { deps: [] });
@@ -27,7 +27,7 @@ export const projectCommands = {
     install: () =>
         new Command('install')
             .description(
-                'Fetch every dependency, by CID, into deps/<cid>/. Nothing is pinned: fetched data is only cached.',
+                "Fetch the project's whole dependency tree into deps/<cid>/, each package once. Nothing is pinned.",
             )
             .option(...TIMEOUT)
             .action(
@@ -83,7 +83,7 @@ export const projectCommands = {
 
 export function projectCommand(): Command {
     const project = new Command('project').description(
-        'The project in the current directory (or -C <dir>): create it, manage its direct dependencies, install them, pack it, draw its tree',
+        'Commands on the project in the current directory (or -C <dir>)',
     );
     for (const make of Object.values(projectCommands)) project.addCommand(make());
     return project;

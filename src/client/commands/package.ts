@@ -25,7 +25,9 @@ export const packageCommands = {
 };
 
 export function packageCommand(): Command {
-    const pkg = new Command('package').description('Look at a package, by CID, through Kubo (no project needed)');
+    const pkg = new Command('package').description(
+        'Commands on any package, by CID, read through Kubo (no project needed)',
+    );
     for (const make of Object.values(packageCommands)) pkg.addCommand(make());
     return pkg;
 }
