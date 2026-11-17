@@ -10,15 +10,16 @@ DPM is a thin layer over IPFS. It has three parts:
  your machine                                      anywhere: other users, pinning services
  ┌──────────────┐  HTTP (private)  ┌──────┐         ┌──────┐
  │ dpm          │ ───────────────▶ │ Kubo │ ◀─────▶ │ Kubo │ ...
- └──────────────┘   read-only      └──────┘  IPFS   └──────┘
- ┌──────────────┐                     ▲      (content, hash-checked)
+ └──────────────┘  pack (add),      └──────┘  IPFS   └──────┘
+                   otherwise reads    ▲      (content, hash-checked)
+ ┌──────────────┐                     │
  │ ipfs command │ ────────────────────┘
- └──────────────┘  add, pin, push to a pinning service
+ └──────────────┘  pin, push to a pinning service
 ```
 
 `dpm` and the `ipfs` command both talk to the user's Kubo node through its private HTTP API. Content moves only between Kubo nodes, over IPFS, checked block by block against its CID.
 
-**`dpm` is a read-only interface to IPFS.** It talks to one Kubo node, normally the one running on the user's machine, using four read-only commands, and never adds, pins or deletes ([ipfs.md](ipfs.md) has the details). The dividing line: anything that works the same for any IPFS content is done by Kubo's `ipfs` command (adding, pinning, pushing to a server, connecting to a server's node, getting a folder by CID). Anything that needs to know what a DPM package is, is done by `dpm`: which files make up a package (`dpm pack`), which CIDs make up its tree (`dpm package tree`), installing a project's dependencies (`dpm install`), and editing `dpm.json`.
+**`dpm` talks to one Kubo node, and Kubo does all the networking.** That node is normally the one running on the user's machine. `dpm` uses five of its commands: `add` for `dpm pack`, and four that only read ([ipfs.md](ipfs.md) has the details). The dividing line: anything that works the same for any IPFS content is done by Kubo's `ipfs` command (pinning other packages, pushing to a server, connecting to a server's node, getting a folder by CID). Anything that needs to know what a DPM package is, is done by `dpm`: adding a package with exactly the files that make it up (`dpm pack`), which CIDs make up its tree (`dpm package tree`), installing a project's dependencies (`dpm install`), and editing `dpm.json`.
 
 ## What DPM does, and what it leaves to others
 
@@ -33,7 +34,7 @@ DPM has no package names, so it has no name conflicts, no overrides and no resol
 
 | Part | What it does |
 |---|---|
-| `Kubo` | A **read-only** client for a Kubo node's HTTP API, on this machine or another: `cat`, `fetch` (Kubo's `refs`), `exportTo` (Kubo's `get`) and `version`. Nothing else. |
+| `Kubo` | A client for a Kubo node's HTTP API, on this machine or another: `addFolder` (Kubo's `add`, with fixed import settings), `cat`, `fetch` (Kubo's `refs`), `exportTo` (Kubo's `get`) and `version`. Nothing else. |
 | `readPackageFolder` | A project folder's files, leaving out `deps/` and hidden entries |
 | `manifest`, `parseManifest`, `readManifest`, `writeManifest`, `isCid` | `dpm.json` |
 | `fetchTree`, `install`, `readInstalled` | Fetch a tree by CID (each package once), install it flat, and read the installed tree back from the `dpm.json` files |

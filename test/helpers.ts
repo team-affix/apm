@@ -95,6 +95,8 @@ afterAll(async () => {
  */
 export async function startNode(
     opts: {
+        /** Kubo's init profiles (default: the test profile, plus unixfs-v1-2025 for plain `ipfs add`). */
+        profile?: string;
         /** Kubo's API.Authorizations: if set, every API request needs one of these secrets. */
         authorizations?: Record<string, { AuthSecret: string; AllowedPaths: string[] }>;
         /** The secret the returned client uses. */
@@ -104,7 +106,7 @@ export async function startNode(
     if (!IPFS_BIN) throw new Error('no ipfs binary');
     const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'dpm-kubo-'));
     const env = { ...process.env, IPFS_PATH: repo };
-    execFileSync(IPFS_BIN, ['init', '--profile=test,unixfs-v1-2025'], { env, stdio: 'ignore' });
+    execFileSync(IPFS_BIN, ['init', `--profile=${opts.profile ?? 'test,unixfs-v1-2025'}`], { env, stdio: 'ignore' });
     if (opts.authorizations)
         execFileSync(IPFS_BIN, ['config', '--json', 'API.Authorizations', JSON.stringify(opts.authorizations)], {
             env,
