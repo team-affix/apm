@@ -1,7 +1,6 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { pack, tree } from '../src/client';
@@ -32,67 +31,58 @@ async function ipfsWithInput(node: Kubo, input: string, ...args: string[]): Prom
     return (await run).stdout.trim();
 }
 
-/** Packs a project to a temporary folder, runs `ipfs add -r -Q <folder> ...extra`, and removes the folder. */
-async function addPacked(dir: string, node: Kubo, ...extra: string[]): Promise<string> {
-    const folder = pack(dir);
-    try {
-        return await ipfs(node, 'add', '-r', '-Q', ...extra, folder);
-    } finally {
-        fs.rmSync(folder, { recursive: true });
-    }
-}
+/** What a user runs to publish a project: dpm pack. Returns the CID. */
+const publish = (dir: string, node: Kubo) => pack(dir, node);
 
-/** What a user runs to publish a project: ipfs add -r -Q "$(dpm pack)". Returns the CID. */
-const publish = (dir: string, node: Kubo) => addPacked(dir, node);
-
-/** The CID a project would have, without adding it anywhere: a package nobody has. */
-const unpublished = (dir: string, node: Kubo) => addPacked(dir, node, '--only-hash');
+/**
+ * The CID a project would have, without adding it anywhere: a package nobody has. (The test projects have no
+ * deps/ or hidden files, and the test nodes use the unixfs-v1-2025 profile, so plain `ipfs add` gives the CID.)
+ */
+const unpublished = (dir: string, node: Kubo) => ipfs(node, 'add', '-r', '-Q', '--only-hash', dir);
 
 /** What a user runs to fetch from another node: ipfs swarm peering add <its address>. */
 async function peer(node: TestNode, other: TestNode): Promise<void> {
     await ipfs(node, 'swarm', 'peering', 'add', ...(await other.id()).addresses);
 }
 
-describe('dpm pack', () => {
-    const MANIFEST_TEXT = '{\n    "deps": []\n}\n';
-
-    it('writes the package without deps/ and hidden files, to a temporary folder named by a GUID', () => {
-        const dir = project({ 'Kant/Ethics.ul': 'x', 'deps/something/file': 'installed', '.git/HEAD': 'ref' });
-        const folder = pack(dir);
-        try {
-            expect(path.dirname(folder)).toBe(os.tmpdir());
-            expect(path.basename(folder)).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
-            expect(readTree(folder)).toEqual({ 'Kant/Ethics.ul': 'x', 'dpm.json': MANIFEST_TEXT });
-        } finally {
-            fs.rmSync(folder, { recursive: true });
-        }
-    });
-
-    it('writes to a folder of your choosing, but never over an existing one', () => {
-        const dir = project({ 'Kant/Ethics.ul': 'x' });
-        const out = path.join(tmpDir(), 'out', 'kant');
-        expect(pack(dir, out)).toBe(out);
-        expect(readTree(out)).toEqual({ 'Kant/Ethics.ul': 'x', 'dpm.json': MANIFEST_TEXT });
-        expect(() => pack(dir, out)).toThrow(/already exists/);
-    });
-
-    it("refuses a folder without dpm.json: it isn't a DPM package", () => {
-        const dir = tmpDir();
-        writeTree(dir, { 'Kant/Ethics.ul': 'x' });
-        expect(() => pack(dir)).toThrow(/is not a DPM project/);
-    });
-});
-
 describe.skipIf(!IPFS_BIN)('DPM over IPFS (real Kubo nodes)', { timeout: 60_000 }, () => {
     if (!IPFS_BIN) it.skip('needs the ipfs binary: set IPFS_BIN or put Kubo on the PATH', () => undefined);
 
-    describe('identity', () => {
-        it('gives the same package the same CID on any node', async () => {
-            const [a, b] = await Promise.all([startNode(), startNode()]);
-            const dir = project({ 'Kant/Ethics.ul': 'duty : \\X. good X => ought X;\n' });
-            const cid = await publish(dir, a);
-            expect(await publish(dir, b)).toBe(cid);
+    describe('dpm pack', () => {
+        it('adds the package to Kubo, which pins it, and returns its CID', async () => {
+            const kubo = await startNode();
+            const cid = await pack(project({ 'Kant/Ethics.ul': 'duty' }), kubo);
             expect(cid).toMatch(/^bafy/);
+            expect(await kubo.pins()).toContain(cid);
+        });
+
+        it('gives the same package the same CID on any node, whatever its import settings', async () => {
+            // b doesn't use the unixfs-v1-2025 profile: dpm sends those settings with every add.
+            const [a, b] = await Promise.all([startNode(), startNode({ profile: 'test' })]);
+            const dir = project({ 'Kant/Ethics.ul': 'duty : \\X. good X => ought X;\n' });
+            const cid = await pack(dir, a);
+            expect(await pack(dir, b)).toBe(cid);
+            // The same CID plain `ipfs add -r` gives on a node with the profile.
+            expect(await ipfs(a, 'add', '-r', '-Q', '--only-hash', dir)).toBe(cid);
+        });
+
+        it("leaves out deps/ and hidden files: they aren't part of the package", async () => {
+            const kubo = await startNode();
+            const dir = project({ 'Kant/Ethics.ul': 'x' });
+            const before = await pack(dir, kubo);
+            writeTree(dir, { 'deps/something/file': 'installed', '.git/HEAD': 'ref' });
+            const cid = await pack(dir, kubo);
+            expect(cid).toBe(before);
+            const out = path.join(tmpDir(), 'got');
+            await ipfs(kubo, 'get', cid, '-o', out);
+            expect(readTree(out)).toEqual({ 'Kant/Ethics.ul': 'x', 'dpm.json': '{\n    "deps": []\n}\n' });
+        });
+
+        it("refuses a folder without dpm.json: it isn't a DPM package", async () => {
+            const kubo = await startNode();
+            const dir = tmpDir();
+            writeTree(dir, { 'Kant/Ethics.ul': 'x' });
+            await expect(pack(dir, kubo)).rejects.toThrow(/is not a DPM project/);
         });
     });
 

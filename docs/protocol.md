@@ -16,7 +16,7 @@ A **package is a folder**, added to IPFS. Its **ID is the folder's CID**. There 
 
   `deps` MUST contain only CIDs, unique and sorted (`[]` for none). No other fields are allowed. `dpm.json` is what makes a folder a DPM package: a folder without one is not a package, and a dependency that isn't a package is an error. Since the file is part of the content, any node can tell whether a CID is a DPM package by looking inside it; nothing else marks packages.
 - **Dependencies are referenced by CID only, never by location.** Any node holding the content is an equally valid source, and IPFS checks every block against its CID.
-- **Import settings are fixed**, so the same folder gets the same CID on every machine: CIDv1, raw leaves, SHA-256, 1 MiB chunks, at most 1024 links per file node, and a HAMT fanout of 256. This is Kubo's `unixfs-v1-2025` profile ([IPIP-499](https://specs.ipfs.tech/ipips/ipip-0499/)), which nodes SHOULD apply so very large folders are also sharded the same way.
+- **Import settings are fixed**, so the same folder gets the same CID on every machine: CIDv1, raw leaves, SHA-256, 1 MiB chunks, at most 1024 links per file node, and a HAMT fanout of 256. This is Kubo's `unixfs-v1-2025` profile ([IPIP-499](https://specs.ipfs.tech/ipips/ipip-0499/)). `dpm pack` sends these settings with every add, so a package's CID doesn't depend on how the node is configured.
 - A project's package is its folder without `deps/` and without hidden entries (names starting with `.`). Symlinks are not part of packages.
 
 Because a CID fixes the package and, through `dpm.json`, every CID it depends on, **a CID fixes its entire dependency tree.** Nothing outside the package can change what its dependencies are.
@@ -39,7 +39,7 @@ DPM never interprets content. What the packages mean, and what to do if two of t
 
 DPM defines no server and no API of its own. Packages are shared the way any IPFS content is:
 
-- **Publishing** is adding the package's folder to an IPFS node (`ipfs add -r`). Anyone who can reach that node, or any other node holding the content, can fetch it by CID.
+- **Publishing** is adding the package's folder to an IPFS node (`dpm pack`). Anyone who can reach that node, or any other node holding the content, can fetch it by CID.
 - **Keeping packages available** is pinning them on nodes that stay online. A user can ask any **IPFS pinning service** to keep a package, with Kubo's own `ipfs pin remote add --service=<service> <cid>`. Nothing is uploaded: the service's node fetches the package over IPFS from the user's node.
 - **Fetching** works from any node that has the package. To fetch from a particular service reliably, a client keeps its node connected to the service's node (Kubo's peering).
 
@@ -51,4 +51,4 @@ What a service chooses to keep is its own policy. A service may check packages b
 
 A node may be shared with other applications. DPM adds nothing to a node: pins carry no DPM-specific name or label, and a package is recognised only by its content (a `dpm.json` at the top level).
 
-A node's RPC API is its private admin interface and MUST NOT be exposed as it is (see [ipfs.md](ipfs.md) for giving `dpm` read-only access to a node on another machine). Nodes reach each other through IPFS's own peer-to-peer port.
+A node's RPC API is its private admin interface and MUST NOT be exposed as it is (see [ipfs.md](ipfs.md) for giving `dpm` limited access to a node on another machine). Nodes reach each other through IPFS's own peer-to-peer port.

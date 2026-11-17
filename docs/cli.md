@@ -1,20 +1,20 @@
 # CLI reference
 
-`dpm` does package management. It's a **read-only interface to IPFS**: it reads packages through the Kubo node running on your machine, and never adds, pins or deletes anything. Everything else is done with the `ipfs` command ([how DPM uses IPFS](ipfs.md)):
+`dpm` does package management through the Kubo node running on your machine ([how DPM uses IPFS](ipfs.md)). `dpm pack` adds your package to it; everything else `dpm` does only reads. The rest is done with the `ipfs` command:
 
 | To | Run |
 |---|---|
-| add your project to your node | `ipfs add -r -Q "$(dpm pack)"` |
+| add your project to your node, pinned, and get its CID | `dpm pack` |
 | pin a package in your node | `ipfs pin add <cid>` |
 | pin a package and its whole tree | `dpm package tree <cid> --flat \| ipfs pin add` |
 | pin everything your project installed | `dpm tree --flat \| ipfs pin add` |
 | register a pinning service, once | `ipfs pin remote service add <server> <url> <token>` (any token if the service needs none) |
-| push a package to a server | `ipfs pin remote add --service=<server> <cid>` |
+| push a package to a server | `ipfs pin remote add --service=<server> <cid>` (your project: `ipfs pin remote add --service=<server> "$(dpm pack)"`) |
 | push a package and its whole tree | push each CID `dpm package tree <cid> --flat` prints (bash: `dpm package tree <cid> --flat \| xargs -n1 ipfs pin remote add --service=<server>`; PowerShell: `dpm package tree <cid> --flat \| % { ipfs pin remote add --service=<server> $_ }`) |
 | fetch from a server | `ipfs swarm peering add <the server node's address>` (see below) |
 | get a package's files to work on | `ipfs get <cid> -o <folder>`, then `dpm install` in it |
 
-**Setup:** run Kubo on your machine, the standard way to use IPFS: `ipfs init --profile=unixfs-v1-2025` once, then `ipfs daemon`, left running. `dpm` and the `ipfs` command both talk to it automatically (at `http://127.0.0.1:5001`), with nothing to configure. For a Kubo set up before, run `ipfs config profile apply unixfs-v1-2025` once.
+**Setup:** run Kubo on your machine, the standard way to use IPFS: `ipfs init` once, then `ipfs daemon`, left running. `dpm` and the `ipfs` command both talk to it automatically (at `http://127.0.0.1:5001`), with nothing to configure.
 
 Kubo does all the work of finding, fetching and verifying content; `dpm` only asks it for packages by CID. (Reading through a Kubo on another machine is possible too, but optional: see [ipfs.md](ipfs.md).) Settings are in `~/.dpm/client/config.json` (override the folder with `DPM_HOME`).
 
@@ -34,7 +34,7 @@ Every `dpm project` command has a shorthand without `project`: `dpm install` is 
 | `dpm project init` | `dpm init` | Create `dpm.json` |
 | `dpm project install [--timeout 120s]` | `dpm install` | Fetch every dependency into `deps/<cid>/`. Your node fetches each package from whichever node has it. Nothing is pinned: fetched packages are cached like anything your node downloads. |
 | `dpm project clean` | `dpm clean` | Delete the project's `deps/` folder: everything `dpm install` wrote. Nothing in IPFS is touched, and `dpm install` brings it all back. Refuses a folder without `dpm.json`. |
-| `dpm project pack [-o <folder>]` | `dpm pack` | Write the project's package (everything except `deps/` and hidden files) to a new folder, and print the folder's path. Without `-o`, it is a temporary folder named by a random GUID; with `-o`, the folder must not exist yet. The folder is the package, to be added with `ipfs add -r` as it is, not edited. `pack` doesn't touch IPFS. |
+| `dpm project pack` | `dpm pack` | Add the project's package (everything except `deps/` and hidden files) to your Kubo, which pins it, and print its CID. The same files always get the same CID, whatever your Kubo's settings. |
 | `dpm project dep add <cid...>` | `dpm dep add` | Add direct dependencies to `dpm.json` |
 | `dpm project dep rm <cid...>` | `dpm dep rm` | Remove direct dependencies from `dpm.json` |
 | `dpm project dep ls` | `dpm dep ls` | List the direct dependencies only, one CID per line, from `dpm.json`. Needs no install and no Kubo. |

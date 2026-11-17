@@ -17,9 +17,9 @@ import { projectCommand, projectCommands } from './commands/project';
  * is `dpm project dep`, with all its subcommands (`dpm dep add`). Each is built by the same function in both
  * places, so they can't differ.
  *
- * `dpm` only reads from IPFS (see docs/ipfs.md). Kubo's `ipfs` command does the rest:
+ * `dpm` talks to one Kubo node (see docs/ipfs.md): `dpm pack` adds your package to it, and everything else only
+ * reads. Kubo's `ipfs` command does the rest:
  *
- *   ipfs add -r -Q "$(dpm pack)"                         add a package to your node
  *   dpm package tree <cid> --flat | ipfs pin add         pin a package and its whole tree
  *   ipfs pin remote add --service=<server> <cid>         push a package to a server (any IPFS pinning service)
  *   ipfs swarm peering add <server address>              stay connected to a server, to fetch from it

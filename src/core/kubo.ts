@@ -4,6 +4,7 @@ import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
 import tar from 'tar-stream';
 import { KuboError } from './errors';
+import { Entry } from './folder';
 
 /** The Authorization header for a secret written as Kubo writes them: `bearer:<token>` or `basic:<user>:<password>`. */
 export function authorizationHeader(secret: string): string {
@@ -16,10 +17,23 @@ export function authorizationHeader(secret: string): string {
 }
 
 /**
- * A read-only client for a Kubo node's HTTP API (which Kubo calls its RPC API; normally http://127.0.0.1:5001):
- * everything `dpm` needs, and nothing that changes the node. It sends four requests: `cat`, `refs`, `get` and
- * `version` (see docs/ipfs.md). The node may be on this machine or another: it's only a URL. A node reachable
- * from other machines should require a secret limited to those requests (Kubo's `API.Authorizations`).
+ * How DPM adds packages, sent with every add: Kubo's `unixfs-v1-2025` settings (CIDv1, raw leaves, 1 MiB chunks,
+ * SHA-256). A CID depends on how files are split into blocks, so with these fixed, the same files get the same
+ * CID on every node, however that node is configured.
+ */
+export const IMPORT_SETTINGS = {
+    'cid-version': '1',
+    'raw-leaves': 'true',
+    chunker: 'size-1048576',
+    hash: 'sha2-256',
+    'max-file-links': '1024',
+    'max-hamt-fanout': '256',
+} as const;
+
+/**
+ * A client for a Kubo node's HTTP API (which Kubo calls its RPC API; normally http://127.0.0.1:5001): everything
+ * `dpm` needs. It sends five requests: `add` (for `dpm pack`), and the read-only `cat`, `refs`, `get` and
+ * `version` (see docs/ipfs.md). The node may be on this machine or another: it's only a URL.
  *
  * It is meant to be extended: `call` and `json` are protected, so a program that does need other requests (e.g. a
  * server pinning what it accepts) can add them in a subclass of its own.
@@ -83,6 +97,47 @@ export class Kubo {
 
     async version(): Promise<string> {
         return (await this.json<{ Version: string }>('version')).Version;
+    }
+
+    /**
+     * Adds a package's files as one folder, with DPM's fixed import settings, and returns the folder's CID. Kubo
+     * pins what it adds, as `ipfs add` does.
+     */
+    async addFolder(entries: readonly Entry[]): Promise<string> {
+        const boundary = `dpm-${Math.random().toString(36).slice(2)}`;
+        // The folder's own name doesn't affect its CID; only the names of what is inside it do.
+        const root = 'package';
+        const parts: Buffer[] = [];
+        const part = (name: string, type: string, content: Buffer) => {
+            parts.push(
+                Buffer.from(
+                    `--${boundary}\r\n` +
+                        `Content-Disposition: form-data; name="file"; filename="${encodeURIComponent(name)}"\r\n` +
+                        `Content-Type: ${type}\r\n\r\n`,
+                ),
+                content,
+                Buffer.from('\r\n'),
+            );
+        };
+        part(root, 'application/x-directory', Buffer.alloc(0));
+        for (const e of entries)
+            if (e.dir) part(`${root}/${e.path}`, 'application/x-directory', Buffer.alloc(0));
+            else part(`${root}/${e.path}`, 'application/octet-stream', e.content);
+        parts.push(Buffer.from(`--${boundary}--\r\n`));
+
+        const res = await this.call(
+            'add',
+            { ...IMPORT_SETTINGS, progress: 'false', quieter: 'false' },
+            Buffer.concat(parts),
+            `multipart/form-data; boundary=${boundary}`,
+        );
+        const lines = (await res.text())
+            .split('\n')
+            .filter((l) => l.trim())
+            .map((l) => JSON.parse(l) as { Name: string; Hash: string });
+        const top = lines.find((l) => l.Name === root);
+        if (!top) throw new KuboError('IPFS add did not report the folder it added');
+        return top.Hash;
     }
 
     /** A file's bytes, by path: `<cid>/dpm.json`. Fetches from the network if needed. */
